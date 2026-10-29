@@ -1,0 +1,44 @@
+# Veyra research pilot settings. Shared and non-secret: versioned in Git.
+# Credentials never go here (they live in .env, which Git ignores).
+#
+# Read by `harvey pilot` (harvey/pilot.py). Changing the budget is a human
+# decision; the pilot pauses at it rather than raising it.
+
+sender:                       # placeholders until the GmbH supplies real ones
+  name: "[YOUR NAME]"
+  company: "[GMBH NAME]"
+  domain: "[GMBH-DOMAIN.example]"
+
+offer: >
+  Two senior engineers (one Vienna-based) working through a small Austrian
+  GmbH. We automate workflows and integrate existing systems, using AI only
+  where it is the right tool. We start with a paid discovery engagement,
+  implement improvements in stages and offer ongoing support, without
+  artificial lock-in. Capacity is limited: we take on few clients at a time.
+
+pilot:
+  model_call_budget: 15       # model calls incl. retries, per batch, across resumptions
+  max_profiles: 5             # shortlist at most this many; fewer if evidence is weak
+  min_fit: 6                  # triage score (0-10) needed to be shortlisted
+  triage_chunk: 5             # companies per triage call
+  per_query_limit: 60         # OSM results per (term, city)
+  regions:
+    US:
+      target: 20
+      terms: ["wholesale distributor", "hvac", "plumbing", "electrician"]
+      cities:                 # US Eastern and Central only
+        "Chicago, IL":      {coordinate: "41.8781,-87.6298,25", timezone: "America/Chicago"}
+        "Columbus, OH":     {coordinate: "39.9612,-82.9988,25", timezone: "America/New_York"}
+        "Atlanta, GA":      {coordinate: "33.7490,-84.3880,25", timezone: "America/New_York"}
+        "Milwaukee, WI":    {coordinate: "43.0389,-87.9065,25", timezone: "America/Chicago"}
+        "Charlotte, NC":    {coordinate: "35.2271,-80.8431,25", timezone: "America/New_York"}
+        "Nashville, TN":    {coordinate: "36.1627,-86.7816,25", timezone: "America/Chicago"}
+        "Pittsburgh, PA":   {coordinate: "40.4406,-79.9959,25", timezone: "America/New_York"}
+        "Indianapolis, IN": {coordinate: "39.7684,-86.1581,25", timezone: "America/Indiana/Indianapolis"}
+    EU:
+      target: 5
+      terms: ["wholesale distributor", "hvac", "plumbing", "electrician"]
+      cities:
+        "Vienna, AT": {coordinate: "48.2082,16.3738,20", timezone: "Europe/Vienna"}
+        "Munich, DE": {coordinate: "48.1351,11.5820,20", timezone: "Europe/Berlin"}
+        "Linz, AT":   {coordinate: "48.3069,14.2858,20", timezone: "Europe/Vienna"}
