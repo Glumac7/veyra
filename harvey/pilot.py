@@ -96,6 +96,8 @@ _RELEVANT = re.compile(
     r"account|dealer|bestell|angebot|katalog|kontakt|leistung|produkte|ueber|über|unternehmen",
     re.I)
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+ROLE_INBOX = re.compile(r"(info|office|shop|sales|contact|kontakt|service|orders?|verkauf|"
+                        r"bestellung|support|mail|hello|buero|büro|team|partsid|admin)\b", re.I)
 _TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.I | re.S)
 PAGE_CHARS = 1500
 MAX_PAGES = 4
@@ -206,7 +208,9 @@ RULES = """Rules:
 - Do not infer inefficiency, ad spend, budget, buying intent, internal systems, workloads,
   savings or contacts from an outdated site or tracking tags. Put guesses in hypotheses.
 - Unknown headcount is not a reason to reject. Prefer conventional automation or existing
-  software over AI or custom builds when that fits better."""
+  software over AI or custom builds when that fits better.
+- US Eastern/Central and European companies are our chosen markets and we work remotely:
+  location or time zone alone is not a reason against a company."""
 
 
 def _evidence_block(ref: str, row: dict, ev: dict, observations: list[dict]) -> str:
@@ -566,8 +570,13 @@ class Pilot:
         facts = "\n".join(
             f"- {f['fact']} — [{f['source_url']}]({f['source_url']}) (observed "
             f"{dated.get(f['source_url'].rstrip('/'), '?')})" for f in t.get("facts", []))
-        routes = [f"Email published on the company site: {e['value']} ([source]({e['url']}))"
-                  for e in ev.get("emails", [])]
+        role = [e for e in ev.get("emails", []) if ROLE_INBOX.match(e["value"])]
+        personal = [e for e in ev.get("emails", []) if e not in role]
+        routes = [f"Role inbox published on the company site: {e['value']} ([source]({e['url']}))"
+                  for e in role]
+        if personal:
+            routes.append(f"{len(personal)} named staff address(es) are published "
+                          f"([source]({personal[0]['url']})); not a recommended first route (GDPR).")
         routes += [f"Phone published on the company site: {p['value']} ([source]({p['url']}))"
                    for p in ev.get("phones", [])]
         if r.get("map_phone") and r.get("map_url"):

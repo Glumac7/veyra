@@ -87,7 +87,9 @@ async def _fixture_state(tmp_path, monkeypatch):
             "domain": dom, "fetched_at": "2026-10-01T00:00:00Z",
             "pages": [{"url": f"https://{dom}/quote", "fetched_at": "2026-10-01T00:00:00Z",
                        "title": "Quote", "text": "Request a quote."}],
-            "emails": [{"value": f"info@{dom}", "url": f"https://{dom}/quote"}], "phones": []}))
+            "emails": [{"value": f"info@{dom}", "url": f"https://{dom}/quote"},
+                       {"value": f"a.person@{dom}", "url": f"https://{dom}/quote"}],
+            "phones": []}))
     return state
 
 
@@ -118,6 +120,8 @@ def test_full_run_drafts_without_mailbox_credentials(tmp_path, monkeypatch):
             assert "Invented claim" not in md.split("## Hypotheses")[0]   # unsourced fact demoted
             assert "Unsourced claim removed" in md
             assert "Named person:** UNKNOWN" in md
+            assert f"Role inbox published on the company site: info@{r['domain']}" in md
+            assert "a.person@" not in md and "1 named staff address" in md
         index = (tmp_path / "out" / "SHORTLIST.md").read_text()
         assert all(name in index for name, _ in FIXTURES)
     asyncio.run(go())
