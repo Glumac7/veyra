@@ -177,6 +177,28 @@ tar xzf backups/research-2026-10-29.tar.gz
 `backups/` is ignored by Git. Keep copies somewhere private (encrypted disk or
 private storage), since they contain business contact data.
 
+## Shared lead board (veyra.nemanjaglumicic.com)
+
+A small separate site in `site/` (plain HTML/JS + one Vercel function + a free
+Neon Postgres), hosted on Vercel's free plan. Everyone logs in with one shared
+password and has the same rights: claim a lead, set its status (new,
+contacted, replied, meeting, won, lost, do-not-contact, rejected), add notes,
+download the spreadsheet. Names are typed once per browser; every change is
+kept in the lead's history. The site never sends anything.
+
+- **Upload:** every `harvey pilot run` / `daily` ends by uploading picked leads
+  (`harvey pilot sync` does it by hand). It needs `VEYRA_SITE_URL` and
+  `VEYRA_SYNC_KEY` in `.env`; the same key is `SYNC_KEY` on Vercel.
+- **Decisions come back:** a lead set to contacted / replied / meeting / won /
+  lost on the board is recorded here as `contacted`, and do-not-contact and
+  rejected carry over, so those companies never return in later batches.
+- **Vercel settings:** `SITE_PASSWORD`, `SESSION_SECRET`, `SYNC_KEY`,
+  `DATABASE_URL` (added by the Neon integration). To change the password:
+  `cd site && vercel env rm SITE_PASSWORD production && vercel env add SITE_PASSWORD production && vercel deploy --prod`
+  (everyone logs in again).
+- **Deploy:** `cd site && npm test && vercel deploy --prod`.
+- **Local preview with fake leads:** `node site/test/dev.mjs` (password `dev`).
+
 ## One pipeline, one host
 
 Each clone has its own independent database: two laptops running the pilot
@@ -185,5 +207,5 @@ shared pipeline, pick **one host** (later a Mac Mini) and run Veyra only
 there; the other engineer works on that host (SSH / screen sharing) or reviews
 the Markdown it produces. To move: stop runs on the old host, back up as
 above, clone and set up on the Mac Mini, restore the backup, run `harvey pilot
-status` to confirm counts, then stop using the old copy. We are not building
-synchronisation or multi-user features.
+status` to confirm counts, then stop using the old copy. The team works on
+the shared lead board, not on copies of the database.

@@ -984,6 +984,21 @@ def pilot_schedule(action: str, hour: int = 7) -> str:
     return "On (daily)." if loaded else "Off."
 
 
+async def _pilot_sync(pilot) -> str:
+    """Upload to the team's lead board if one is configured; never fails the run."""
+    from dotenv import load_dotenv
+    from harvey.paths import PROJECT_ROOT
+    load_dotenv(PROJECT_ROOT / ".env")
+    url, key = os.environ.get("VEYRA_SITE_URL", ""), os.environ.get("VEYRA_SYNC_KEY", "")
+    if not (url and key):
+        return "not set up (VEYRA_SITE_URL / VEYRA_SYNC_KEY in .env)"
+    try:
+        r = await pilot.sync(url, key)
+    except Exception as e:
+        return f"upload failed ({type(e).__name__}: {e}); it retries on the next run"
+    return f"{r['uploaded']} leads uploaded ({r['added']} new), {r['decisions']} decisions brought back"
+
+
 def cmd_pilot(args):
     """Veyra research pilot: resume the current batch, show it, or record outreach by hand."""
     if args.pilot_action == "schedule":
@@ -1006,6 +1021,9 @@ def cmd_pilot(args):
         if args.pilot_action == "new-batch":
             n = await Pilot(state, config=config).new_batch()
             print(f"\n  Batch {n} is now current. Run `harvey pilot run` to research it.\n")
+            return
+        if args.pilot_action == "sync":
+            print(f"\n  {await _pilot_sync(Pilot(state, config=config))}\n")
             return
         from harvey.brain import Brain
         pilot = Pilot(state, brain=Brain(state, config.brain), config=config)
@@ -1031,7 +1049,8 @@ def cmd_pilot(args):
             print(f"  note: {note}")
         if result["paused"]:
             print(f"  PAUSED: {result['paused']}. Progress is saved; nothing was dropped.")
-        print(f"  Shortlist: data/research/SHORTLIST.md ({len(result['files'])} profiles)\n")
+        print(f"  Shortlist: data/research/SHORTLIST.md ({len(result['files'])} profiles)")
+        print(f"  Lead board: {await _pilot_sync(pilot)}\n")
 
     asyncio.run(_run())
 
@@ -1191,7 +1210,7 @@ def main():
     sub = subparsers.add_parser(
         "pilot", help="Veyra research pilot (research-only; never sends)")
     sub.add_argument("pilot_action", nargs="?", default="status",
-                     choices=["run", "daily", "status", "new-batch", "mark", "schedule"])
+                     choices=["run", "daily", "status", "new-batch", "mark", "schedule", "sync"])
     sub.add_argument("domain", nargs="?", default="", help="for mark: the domain; for schedule: on|off")
     sub.add_argument("--state", default="", help="for mark: outreach state to record")
     sub.add_argument("--note", default="", help="for mark: a short note")

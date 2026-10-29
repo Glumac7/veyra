@@ -37,6 +37,10 @@ AGENT = "veyra_pilot"
 DRAFT_LABEL = "REVIEW DRAFT — NOT APPROVED FOR SENDING"
 MAX_DRAFT_WORDS = 120
 OUTREACH_STATES = ("unreviewed", "reviewed", "contacted", "do_not_contact", "rejected")
+# Lead-board status -> outreach state recorded here (a human set it there).
+SITE_STATUS = {"contacted": "contacted", "replied": "contacted", "meeting": "contacted",
+               "won": "contacted", "lost": "contacted", "do_not_contact": "do_not_contact",
+               "rejected": "rejected"}
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS veyra_research (
@@ -549,6 +553,36 @@ class Pilot:
             r["triage"] = json.loads(r["triage_json"] or "{}")
             r["verdict"] = json.loads(r["review_json"] or "{}").get("verdict", "")
         return rows
+
+    async def sync(self, url: str, key: str) -> dict:
+        """Upload picked leads to the team's lead board and bring back what people
+        decided there, so a contacted or do-not-contact company stays out of
+        future batches. Talks only to our own site, never to a lead."""
+        import httpx
+        leads = [{
+            "id": r["company_id"], "domain": r["domain"], "name": r["name"],
+            "website": r["website"] or f"https://{r['domain']}", "city": r["city"],
+            "region": r["region"], "batch": r["batch"], "fit": r["triage"].get("fit"),
+            "verdict": r["verdict"], "what": r["triage"].get("what_it_does", ""),
+            "emails": "; ".join(r["role_emails"]), "phones": "; ".join(r["phones"]),
+            "subject": r["draft_subject"], "draft": r["draft_body"], "profile_md": self.profile_md(r),
+        } for r in await self.leads()]
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(url.rstrip("/") + "/api/sync", json={"leads": leads},
+                                     headers={"Authorization": f"Bearer {key}"})
+            resp.raise_for_status()
+            data = resp.json()
+        changed = 0
+        for d in data.get("decisions", []):
+            state = SITE_STATUS.get(d.get("status"))
+            if state:
+                rows = await self._q("SELECT outreach_state FROM veyra_research WHERE company_id = ?",
+                                     (d["id"],))
+                if rows and rows[0]["outreach_state"] != state:
+                    await self.update(d["id"], outreach_state=state,
+                                      outreach_note=f"set on the lead board ({d['status']})")
+                    changed += 1
+        return {"uploaded": len(leads), "added": data.get("added", 0), "decisions": changed}
 
     async def new_batch(self) -> int:
         n = await self.batch() + 1

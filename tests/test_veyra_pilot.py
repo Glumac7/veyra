@@ -310,3 +310,34 @@ def test_later_batches_rotate_cities_and_reach_known_companies(tmp_path, monkeyp
         got = [r["domain"] for r in await p.rows(3)]
         assert got and not set(got) & {r["domain"] for b in (1, 2) for r in await p.rows(b)}
     asyncio.run(go())
+
+
+def test_sync_uploads_leads_and_brings_back_decisions(tmp_path, monkeypatch):
+    import httpx
+    sent = {}
+
+    def board(request):
+        sent["auth"] = request.headers["authorization"]
+        sent["leads"] = json.loads(request.content)["leads"]
+        first = sent["leads"][0]["id"]
+        return httpx.Response(200, json={"added": len(sent["leads"]), "decisions": [
+            {"id": first, "status": "meeting"}, {"id": "unknown", "status": "contacted"}]})
+
+    real = httpx.AsyncClient
+    monkeypatch.setattr(httpx, "AsyncClient",
+                        lambda **k: real(transport=httpx.MockTransport(board), **k))
+
+    async def go():
+        state = await _fixture_state(tmp_path, monkeypatch)
+        p = _pilot(state, tmp_path, FakeBrain())
+        await p.run()
+        r = await p.sync("https://board.example.com/", "k")
+        assert r == {"uploaded": 3, "added": 3, "decisions": 1}
+        assert sent["auth"] == "Bearer k"
+        lead = sent["leads"][0]
+        assert P.DRAFT_LABEL in lead["profile_md"] and "a.person@" not in json.dumps(sent)
+        assert lead["emails"].startswith("info@")
+        states = {row["company_id"]: row["outreach_state"] for row in await p.rows(1)}
+        assert states[lead["id"]] == "contacted"            # 'meeting' on the board
+        assert list(states.values()).count("unreviewed") == 2
+    asyncio.run(go())
