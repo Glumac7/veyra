@@ -980,7 +980,7 @@ def cmd_pilot(args):
         for note in result["notes"][:10]:
             print(f"  note: {note}")
         if result["paused"]:
-            print("  PAUSED at the model-call budget. Progress is saved; nothing was dropped.")
+            print(f"  PAUSED: {result['paused']}. Progress is saved; nothing was dropped.")
         print(f"  Shortlist: data/research/SHORTLIST.md ({len(result['files'])} profiles)\n")
 
     asyncio.run(_run())

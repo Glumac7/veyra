@@ -72,6 +72,10 @@ class BudgetReached(Exception):
     pass
 
 
+class ModelUnavailable(Exception):
+    """No reply at all (logged out, outage, timeout): pause rather than burn budget."""
+
+
 def load_settings(path: Path | None = None) -> dict:
     return yaml.safe_load((path or SETTINGS_FILE).read_text(encoding="utf-8"))
 
@@ -326,7 +330,9 @@ class Pilot:
         from harvey.brain import Brain
         text = await self.brain.think(prompt + "\n\nRespond ONLY with valid JSON.",
                                       max_retries=0, agent=AGENT, task=task)
-        return Brain._extract_json(text) if text else None
+        if not text:
+            raise ModelUnavailable
+        return Brain._extract_json(text)
 
     # stages
 
@@ -338,10 +344,21 @@ class Pilot:
             return []
         notes = []
         known = {r["company_id"] for r in await self._q("SELECT company_id FROM veyra_research")}
+
+        async def add(cid, region, city, tz):
+            await self._q("INSERT OR IGNORE INTO veyra_research (company_id, batch, region, "
+                          "city, timezone) VALUES (?,?,?,?,?)",
+                          (cid, batch, region, city, tz), write=True)
+            known.add(cid)
+
         for region, spec in self.p["regions"].items():
             have = len([r for r in await self.rows(batch) if r["region"] == region])
-            for city, cs in spec["cities"].items():
-                for term in spec["terms"]:
+            # Spread the target over every (term, city) so one dense query
+            # can't fill a region; the surplus fills any gap afterwards.
+            per_query = max(1, spec["target"] // (len(spec["cities"]) * len(spec["terms"])))
+            leftovers = []
+            for term in spec["terms"]:
+                for city, cs in spec["cities"].items():
                     if have >= spec["target"]:
                         break
                     before = {r["id"] for r in await self._q("SELECT id FROM companies")}
@@ -349,19 +366,19 @@ class Pilot:
                                        coordinate=cs["coordinate"])
                     report = await run_discovery(self.state, self.config, "osm", [q], max_spend=0.0)
                     notes += report.errors
-                    new = await self._q(
+                    found = [c["id"] for c in await self._q(
                         "SELECT id FROM companies WHERE domain != '' ORDER BY created_at")
-                    for c in new:
-                        if have >= spec["target"]:
-                            break
-                        if c["id"] in before or c["id"] in known:
-                            continue
-                        await self._q(
-                            "INSERT OR IGNORE INTO veyra_research (company_id, batch, region, "
-                            "city, timezone) VALUES (?,?,?,?,?)",
-                            (c["id"], batch, region, city, cs["timezone"]), write=True)
-                        known.add(c["id"])
+                        if c["id"] not in before and c["id"] not in known]
+                    for cid in found[:per_query]:
+                        await add(cid, region, city, cs["timezone"])
                         have += 1
+                    leftovers += [(cid, city, cs["timezone"]) for cid in found[per_query:]]
+            for cid, city, tz in leftovers:
+                if have >= spec["target"]:
+                    break
+                if cid not in known:
+                    await add(cid, region, city, tz)
+                    have += 1
         await self.state.set_setting(done_key, _now())
         return notes
 
@@ -480,7 +497,10 @@ class Pilot:
                     await self.draft(batch)
                 await self.review(batch)
         except BudgetReached:
-            result["paused"] = True
+            result["paused"] = "model-call budget reached"
+        except ModelUnavailable:
+            result["paused"] = ("the model gave no reply (check `claude login`); "
+                                "the failed attempt was counted")
         result["files"] = await self.write(batch)
         result["counts"] = await self.counts(batch)
         result["calls"] = await self.calls_used(batch)

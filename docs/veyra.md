@@ -84,7 +84,11 @@ Stages (saved per company, so Ctrl-C or a crash loses nothing):
 **Budget.** `pilot.model_call_budget` (15) counts every model attempt,
 including retries, per batch, stored in the database before each call, so a
 resume never gets a fresh allowance. At the limit the run pauses with
-everything saved; raising it is your decision. Token counts come from the
+everything saved; raising it is your decision. A call that gets no reply at
+all (logged out, outage, timeout) counts as one attempt and pauses the run
+instead of burning the rest of the budget; check `claude login` and resume.
+Run the pilot from your own terminal: a child `claude` started from inside
+another tool's session may not have a valid login of its own. Token counts come from the
 Claude CLI's own report (`usage_events`, agent `veyra_pilot`); dollar cost is
 not measurable on a subscription plan.
 

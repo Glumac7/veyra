@@ -126,9 +126,11 @@ def test_full_run_drafts_without_mailbox_credentials(tmp_path, monkeypatch):
 def test_budget_pauses_and_resume_keeps_count(tmp_path, monkeypatch):
     async def go():
         state = await _fixture_state(tmp_path, monkeypatch)
-        brain = FakeBrain(fail_first=1)          # first triage attempt fails
+        brain = FakeBrain(fail_first=1)          # first attempt: no reply (logged out)
         res = await _pilot(state, tmp_path, brain, model_call_budget=3).run()
-        assert res["paused"] and res["calls"] == 3
+        assert "no reply" in res["paused"] and res["calls"] == 1   # stops, doesn't burn budget
+        res = await _pilot(state, tmp_path, brain, model_call_budget=3).run()
+        assert "budget" in res["paused"] and res["calls"] == 3
         before = await _pilot(state, tmp_path, brain).counts(1)
         assert sum(before.values()) == 3          # nothing dropped
 
@@ -197,3 +199,28 @@ def test_fresh_clone_has_settings_but_no_state_or_secrets():
                              capture_output=True, text=True).stdout.split()
     assert len(ignored) == 4
     assert P.load_settings()["pilot"]["model_call_budget"] == 15
+
+
+def test_discovery_spreads_over_cities(tmp_path, monkeypatch):
+    async def go():
+        state = StateManager(str(tmp_path / "t.db"))
+        await state.init_db()
+
+        async def dense(state_, config, provider, queries, max_spend=0.0):
+            from harvey.collectors.discover import DiscoveryReport
+            q = queries[0]
+            for i in range(5):     # every query alone could fill the whole target
+                await state_.add_company(Company(name=f"{q.location} {i}",
+                                                 domain=f"{P._slug(q.location)}-{i}.example.com"))
+            return DiscoveryReport()
+
+        monkeypatch.setattr("harvey.collectors.discover.run_discovery", dense)
+        cities = {c: {"coordinate": "1,1,5", "timezone": "America/Chicago"}
+                  for c in ("Aville, IL", "Btown, OH", "Cburg, GA")}
+        p = _pilot(state, tmp_path, FakeBrain(),
+                   regions={"US": {"target": 4, "terms": ["hvac"], "cities": cities}})
+        await p.init()
+        await p.discover(1)
+        got = [r["city"] for r in await p.rows(1)]
+        assert len(got) == 4 and set(got) == set(cities)
+    asyncio.run(go())
