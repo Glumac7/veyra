@@ -1017,7 +1017,7 @@ def cmd_pilot(args):
             print(f"  Usage (all batches): {await pilot.usage()}\n")
             return
         import fcntl
-        lock = open(state.db_path + ".pilot.lock", "w")
+        lock = open(state.db_path + ".pilot.lock", "w", encoding="utf-8")
         try:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
