@@ -539,6 +539,68 @@ async def get_company_contacts(company_id: str):
     return rows
 
 
+# ── Research (Veyra pilot) ──
+
+
+async def _pilot():
+    from harvey.pilot import Pilot
+    p = Pilot(_state())
+    await p.init()
+    return p
+
+
+@app.get("/api/research")
+async def get_research():
+    """The current batch: every researched company, its stage, fit and outreach state."""
+    import json as _json
+    if not DB_PATH.exists():
+        return {"batch": 1, "rows": [], "counts": {}, "calls": 0, "budget": 0, "usage": {}}
+    p = await _pilot()
+    batch = await p.batch()
+    rows = []
+    for r in await p.rows(batch):
+        t = _json.loads(r["triage_json"] or "{}")
+        rv = _json.loads(r["review_json"] or "{}")
+        rows.append({
+            "id": r["company_id"], "name": r["name"], "domain": r["domain"],
+            "city": r["city"], "region": r["region"], "status": r["status"],
+            "fit": t.get("fit"), "what": t.get("what_it_does", ""),
+            "why_not": "; ".join(t.get("poor_fit_reasons", [])[:2]),
+            "verdict": rv.get("verdict", ""), "subject": r["draft_subject"] or "",
+            "outreach_state": r["outreach_state"], "outreach_note": r["outreach_note"] or "",
+            "has_profile": r["status"] in ("drafted", "reviewed", "dropped"),
+        })
+    return {"batch": batch, "rows": rows, "counts": await p.counts(batch),
+            "calls": await p.calls_used(batch), "budget": p.p["model_call_budget"],
+            "usage": await p.usage()}
+
+
+@app.get("/api/research/{company_id}")
+async def get_research_profile(company_id: str):
+    """One company's full profile (facts, hypotheses, review, draft) as Markdown."""
+    p = await _pilot()
+    for r in await p.rows(await p.batch()):
+        if r["company_id"] == company_id and r["status"] in ("drafted", "reviewed", "dropped"):
+            return {"name": r["name"], "domain": r["domain"], "markdown": p.profile_md(r)}
+    return _refuse("No profile for that company in this batch.", 404)
+
+
+@app.post("/api/research/{company_id}/mark")
+async def mark_research(company_id: str, request: Request):
+    """Record a human decision. The same states as `harvey pilot mark`; sends nothing."""
+    from harvey.pilot import OUTREACH_STATES
+    body = await request.json()
+    st = body.get("state", "")
+    if st not in OUTREACH_STATES:
+        return _refuse(f"state must be one of {', '.join(OUTREACH_STATES)}", 400)
+    p = await _pilot()
+    rows = await p._q("SELECT domain FROM companies WHERE id = ?", (company_id,))
+    if not rows:
+        return _refuse("Unknown company.", 404)
+    await p.mark(rows[0]["domain"], st, str(body.get("note", ""))[:500])
+    return {"success": True}
+
+
 # ── Feedback ──
 
 

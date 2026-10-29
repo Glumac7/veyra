@@ -228,3 +228,30 @@ def test_discovery_spreads_over_cities(tmp_path, monkeypatch):
         got = [r["city"] for r in await p.rows(1)]
         assert len(got) == 4 and set(got) == set(cities)
     asyncio.run(go())
+
+
+def test_dashboard_research_tab(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    import harvey.dashboard as dash
+
+    async def setup():
+        state = await _fixture_state(tmp_path, monkeypatch)
+        await _pilot(state, tmp_path, FakeBrain()).run()
+        return state
+    state = asyncio.run(setup())
+    monkeypatch.setattr(dash, "DB_PATH", Path(state.db_path))
+    monkeypatch.setattr(P, "OUT_DIR", tmp_path / "out")
+    dash.token_store.configure(tmp_path / "dashboard-token")
+    with TestClient(dash.app, base_url="http://127.0.0.1:5555",
+                    headers={"Authorization": f"Bearer {dash.token_store.get()}"}) as c:
+        d = c.get("/api/research").json()
+        assert d["calls"] == 6 and len(d["rows"]) == 3
+        row = d["rows"][0]
+        assert row["has_profile"] and row["verdict"] == "keep" and row["outreach_state"] == "unreviewed"
+        md = c.get(f"/api/research/{row['id']}").json()["markdown"]
+        assert P.DRAFT_LABEL in md and "a.person@" not in md
+        assert c.post(f"/api/research/{row['id']}/mark", json={"state": "emailed"}).status_code == 400
+        assert c.post(f"/api/research/{row['id']}/mark", json={"state": "rejected"}).json()["success"]
+        after = {r["id"]: r for r in c.get("/api/research").json()["rows"]}
+        assert after[row["id"]]["outreach_state"] == "rejected"
+        assert c.get("/api/research/nope").status_code == 404

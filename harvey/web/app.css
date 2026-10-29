@@ -1032,3 +1032,11 @@ table.clip td { max-width: 320px; overflow: hidden; text-overflow: ellipsis; }
 .warmup-actions { margin-top: var(--sp-2); align-items: center; }
 a.btn, a.btn:hover { text-decoration: none; }
 .warmup-actions .form-input { flex: 1 1 200px; height: 28px; min-width: 0; }
+
+/* Research profile (Veyra pilot) */
+.research-profile { max-width: 78ch; font-size: var(--fs-ui); line-height: 1.6; }
+.research-profile ul { margin: 4px 0 8px 18px; padding: 0; }
+.research-profile li { margin: 3px 0; }
+.research-profile p { margin: 6px 0; }
+.research-profile pre.draft { white-space: pre-wrap; background: var(--surface-2, rgba(127,127,127,.08));
+  border: 1px solid var(--border, rgba(127,127,127,.25)); border-radius: 8px; padding: 12px 14px; font-family: inherit; }

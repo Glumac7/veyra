@@ -1,4 +1,5 @@
-let currentTab = 'today';
+let currentTab = 'research';
+let researchOpen = null;   // company id whose profile is open
 let companyDrill = false;      // true while viewing a single company's contacts
 let _companies = [], _prospects = [], _campaigns = [];
 let _signals = null;           // last /api/signals payload, for the cohort builder
@@ -397,6 +398,7 @@ function toggleVisibility(inputId) {
 function showTab(id, btn) {
   currentTab = id;
   if (id === 'companies') companyDrill = false;
+  if (id === 'research') researchOpen = null;
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
   document.getElementById(id).classList.add('active');
@@ -406,6 +408,7 @@ function showTab(id, btn) {
 
 function loadCurrentTab() {
   switch (currentTab) {
+    case 'research': researchOpen ? openResearch(researchOpen) : loadResearch(); break;
     case 'today': loadLiveStatus(); loadToday(); loadTrend(); loadFunnel(); loadSetupStatus(); loadRuns(); loadTodayActivity(); break;
     case 'signals': loadSignals(); break;
     case 'discover': loadDiscoverProviders(); break;
@@ -419,6 +422,117 @@ function loadCurrentTab() {
     case 'settings': loadSettings(); loadSendingModeCard(); break;
     case 'controls': loadHarveyStatus(); loadLogs(); break;
   }
+}
+
+// ── Research: the Veyra pilot (read + record decisions; never sends) ──
+
+const RESEARCH_STAGE = {
+  reviewed: 'Picked', drafted: 'Picked (not reviewed yet)', dropped: 'Dropped by reviewer',
+  not_shortlisted: 'Skipped', no_evidence: 'Site unreadable', candidate: 'Waiting',
+  evidence: 'Waiting', triaged: 'Waiting', shortlisted: 'Waiting',
+};
+const OUTREACH_LABEL = {
+  unreviewed: 'Not decided', reviewed: 'Reviewed', contacted: 'Contacted (by you)',
+  do_not_contact: 'Do not contact', rejected: 'Rejected',
+};
+
+async function loadResearch() {
+  researchOpen = null;
+  const el = document.getElementById('research-body');
+  const d = await api('/api/research');
+  if (!d) { el.innerHTML = offlineState(); return; }
+  const picked = d.rows.filter(r => r.has_profile);
+  navCount('nav-research', picked.filter(r => r.outreach_state === 'unreviewed').length);
+  if (!d.rows.length) {
+    el.innerHTML = emptyState(icon('research'), 'No research yet',
+      'Run <b>harvey pilot run</b> in a terminal. Results show up here as they come in.');
+    return;
+  }
+  const u = d.usage || {};
+  let html = '<div class="card"><div class="card-head"><h3>Batch ' + d.batch + '</h3>' +
+    '<span class="meta">' + d.rows.length + ' companies looked at · ' + picked.length + ' picked · ' +
+    'model calls ' + d.calls + ' of ' + d.budget + ' · ' + (u.output || 0).toLocaleString() + ' output tokens</span></div></div>';
+
+  html += '<h3 style="margin:18px 0 8px">Picked</h3>';
+  if (!picked.length) html += '<div class="empty"><div class="copy">None picked in this batch.</div></div>';
+  else {
+    html += '<div class="table-card"><table><thead><tr><th>Company</th><th>Where</th><th class="num">Fit</th>' +
+      '<th>Reviewer</th><th>Your decision</th></tr></thead><tbody>';
+    picked.forEach(r => {
+      html += '<tr class="clickable" onclick="openResearch(\'' + escHtml(r.id) + '\')">' +
+        '<td><div class="cell-stack"><span class="cell-main">' + escHtml(r.name) + '</span>' +
+        '<span class="cell-sub">' + escHtml(r.what) + '</span></div></td>' +
+        '<td>' + escHtml(r.city) + '</td><td class="num">' + (r.fit ?? '') + '</td>' +
+        '<td><span class="tag">' + escHtml(r.verdict || 'not reviewed') + '</span></td>' +
+        '<td>' + escHtml(OUTREACH_LABEL[r.outreach_state] || r.outreach_state) + '</td></tr>';
+    });
+    html += '</tbody></table></div><div class="table-foot">Click a company to read its write-up and draft email.</div>';
+  }
+
+  const rest = d.rows.filter(r => !r.has_profile);
+  html += '<h3 style="margin:18px 0 8px">Looked at, not picked</h3>' +
+    '<div class="table-card"><table><thead><tr><th>Company</th><th>Where</th><th>Result</th>' +
+    '<th class="num">Fit</th><th>Why</th></tr></thead><tbody>';
+  rest.forEach(r => {
+    const site = safeHref('https://' + r.domain);
+    html += '<tr><td><div class="cell-stack"><span class="cell-main">' + escHtml(r.name) + '</span>' +
+      '<span class="cell-sub">' + (site ? '<a href="' + site + '" target="_blank" rel="noopener noreferrer">' +
+      escHtml(r.domain) + '</a>' : escHtml(r.domain)) + '</span></div></td>' +
+      '<td>' + escHtml(r.city) + '</td><td>' + escHtml(RESEARCH_STAGE[r.status] || r.status) + '</td>' +
+      '<td class="num">' + (r.fit ?? '') + '</td><td class="muted">' + escHtml(r.why_not || r.what) + '</td></tr>';
+  });
+  el.innerHTML = html + '</tbody></table></div>';
+}
+
+// Small Markdown → HTML for the profiles Veyra writes (headings, lists, bold,
+// links, code blocks, quotes). Everything is escaped first.
+function mdToHtml(md) {
+  const inline = t => escHtml(t)
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, txt, url) => {
+      const h = safeHref(url.replace(/&amp;/g, '&'));
+      return h ? '<a href="' + h + '" target="_blank" rel="noopener noreferrer">' + txt + '</a>' : txt;
+    });
+  let out = '', list = false, code = null;
+  for (const line of md.split('\n')) {
+    if (code !== null) {
+      if (line.startsWith('```')) { out += '<pre class="draft">' + escHtml(code) + '</pre>'; code = null; }
+      else code += (code ? '\n' : '') + line;
+      continue;
+    }
+    if (line.startsWith('```')) { code = ''; continue; }
+    const li = line.match(/^- (.*)/);
+    if (!li && list) { out += '</ul>'; list = false; }
+    if (li) { if (!list) { out += '<ul>'; list = true; } out += '<li>' + inline(li[1]) + '</li>'; }
+    else if (line.startsWith('# ')) continue;   // the name is in the card head
+    else if (line.startsWith('## ')) out += '<h3 style="margin:20px 0 6px">' + inline(line.slice(3)) + '</h3>';
+    else if (line.startsWith('> ')) out += '<p class="muted">' + inline(line.slice(2)) + '</p>';
+    else if (line.trim()) out += '<p>' + inline(line) + '</p>';
+  }
+  return out + (list ? '</ul>' : '');
+}
+
+async function openResearch(id) {
+  researchOpen = id;
+  const el = document.getElementById('research-body');
+  const d = await api('/api/research/' + encodeURIComponent(id));
+  if (!d) { el.innerHTML = offlineState(); return; }
+  const btn = (st, label) => '<button class="btn btn-sm" onclick="markResearch(\'' + escHtml(id) + '\', \'' + st + '\')">' + label + '</button>';
+  el.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="loadResearch()" style="margin-bottom:12px">&larr; All research</button>' +
+    '<div class="card"><div class="card-head"><h3>' + escHtml(d.name) + '</h3><span class="meta">' + escHtml(d.domain) + '</span></div>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 12px">' +
+      btn('reviewed', 'Mark reviewed') + btn('rejected', 'Reject') + btn('do_not_contact', 'Do not contact') +
+      btn('contacted', 'I contacted them') + btn('unreviewed', 'Undo') + '</div>' +
+    '<div class="research-profile">' + mdToHtml(d.markdown) + '</div></div>';
+}
+
+async function markResearch(id, st) {
+  if (st === 'contacted' && !confirm('Record that YOU contacted this company yourself? Veyra never contacts anyone.')) return;
+  const r = await api('/api/research/' + encodeURIComponent(id) + '/mark',
+    {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({state: st})});
+  if (r && r.success) { showToast('Saved: ' + (OUTREACH_LABEL[st] || st) + '.', 'success'); openResearch(id); }
+  else showToast(failMsg(r, 'Could not save that.'), 'error');
 }
 
 // ── Today: what needs a human ──
@@ -2570,6 +2684,7 @@ async function loadActivity() {
 
 // ── Init & live refresh ──
 
+loadResearch();
 loadToday();
 loadTrend();
 loadFunnel();
