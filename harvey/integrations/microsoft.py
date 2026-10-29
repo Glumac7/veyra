@@ -418,6 +418,8 @@ class _LoopbackServerV6(_LoopbackServer):
 def run_auth_flow(client_id: str, tenant: str = "") -> bool:
     """One-time sign-in (authorization code + PKCE, loopback redirect).
     Blocks until the browser round-trip completes."""
+    from harvey import research_only
+    research_only.refuse("Connecting a mailbox")
     import threading
     import urllib.parse
 

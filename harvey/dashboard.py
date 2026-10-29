@@ -609,6 +609,11 @@ async def start_harvey():
 
     if _check_harvey_pid():
         return {"success": False, "message": "Harvey is already running."}
+    from harvey import research_only
+    try:
+        research_only.refuse("The autonomous heartbeat loop")
+    except research_only.CommunicationBlocked as e:
+        return {"success": False, "message": str(e)}
     from harvey.main import _needs_setup
     if _needs_setup():
         return {"success": False,

@@ -120,6 +120,8 @@ def _ensure_importable(project_root: str):
 
 def cmd_setup(args):
     """Run the interactive setup wizard."""
+    from harvey import research_only
+    research_only.refuse("The setup wizard (it connects mailboxes and warmup)")
     from harvey.setup import run_setup
 
     asyncio.run(run_setup())

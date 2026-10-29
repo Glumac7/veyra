@@ -150,6 +150,8 @@ class MailboxHealth:
 class TrulyInbox:
     def __init__(self, api_key: str, workspace_id: str = "", *,
                  transport: httpx.AsyncBaseTransport | None = None):
+        from harvey import research_only
+        research_only.refuse("TrulyInbox warmup")
         if not isinstance(api_key, str) or not api_key.strip() \
                 or not (api_key.isascii() and api_key.isprintable()):
             raise TrulyInboxError(KEY_REJECTED)

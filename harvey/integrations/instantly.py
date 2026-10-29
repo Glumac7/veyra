@@ -23,6 +23,8 @@ TIMEOUT = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
 
 class InstantlyClient:
     def __init__(self, api_key: str):
+        from harvey import research_only
+        research_only.refuse("Instantly")
         self.api_key = api_key or ""
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",

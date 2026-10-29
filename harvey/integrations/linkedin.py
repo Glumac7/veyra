@@ -37,6 +37,8 @@ MAX_SEARCH_PAGES_PER_QUERY = 5
 
 class LinkedInAutomation:
     def __init__(self, email: str, password: str):
+        from harvey import research_only
+        research_only.refuse("LinkedIn automation")
         self.email = email
         self.password = password
         self.browser = None
