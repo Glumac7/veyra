@@ -558,11 +558,13 @@ async def get_research():
     p = await _pilot()
     batch = await p.batch()
     rows = []
-    for r in await p.rows(batch):
+    # Picked leads from every batch (the backlog), plus the rest of today's batch.
+    current = [r for r in await p.rows(batch) if r["status"] not in ("drafted", "reviewed")]
+    for r in await p.leads() + current:
         t = _json.loads(r["triage_json"] or "{}")
         rv = _json.loads(r["review_json"] or "{}")
         rows.append({
-            "id": r["company_id"], "name": r["name"], "domain": r["domain"],
+            "id": r["company_id"], "batch": r["batch"], "name": r["name"], "domain": r["domain"],
             "city": r["city"], "region": r["region"], "status": r["status"],
             "fit": t.get("fit"), "what": t.get("what_it_does", ""),
             "why_not": "; ".join(t.get("poor_fit_reasons", [])[:2]),
@@ -575,12 +577,35 @@ async def get_research():
             "usage": await p.usage()}
 
 
+@app.get("/api/research/leads.csv")
+async def research_leads_csv():
+    """Picked leads for the person who sends (by hand, outside Veyra). Leaves out
+    anyone rejected, marked do-not-contact or already contacted."""
+    import csv
+    import io
+    p = await _pilot()
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["company", "website", "city", "region", "fit", "reviewer", "your_decision",
+                "email (published role inbox)", "phone", "subject", "draft", "batch"])
+    for r in await p.leads():
+        if r["outreach_state"] in ("rejected", "do_not_contact", "contacted"):
+            continue
+        w.writerow([r["name"], r["website"] or f"https://{r['domain']}", r["city"], r["region"],
+                    r["triage"].get("fit", ""), r["verdict"], r["outreach_state"],
+                    "; ".join(r["role_emails"]), "; ".join(r["phones"]),
+                    r["draft_subject"], r["draft_body"], r["batch"]])
+    return Response(out.getvalue(), media_type="text/csv", headers={
+        "Content-Disposition": 'attachment; filename="veyra-leads.csv"'})
+
+
 @app.get("/api/research/{company_id}")
 async def get_research_profile(company_id: str):
     """One company's full profile (facts, hypotheses, review, draft) as Markdown."""
     p = await _pilot()
-    for r in await p.rows(await p.batch()):
-        if r["company_id"] == company_id and r["status"] in ("drafted", "reviewed", "dropped"):
+    for r in await p._q("SELECT batch FROM veyra_research WHERE company_id = ?", (company_id,)):
+        r = next(x for x in await p.rows(r["batch"]) if x["company_id"] == company_id)
+        if r["status"] in ("drafted", "reviewed", "dropped"):
             return {"name": r["name"], "domain": r["domain"], "markdown": p.profile_md(r)}
     return _refuse("No profile for that company in this batch.", 404)
 

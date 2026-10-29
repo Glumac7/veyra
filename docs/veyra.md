@@ -81,7 +81,7 @@ Stages (saved per company, so Ctrl-C or a crash loses nothing):
 5. **Profile + draft** (model, one call each), then **one review call** that
    challenges all of them.
 
-**Budget.** `pilot.model_call_budget` (15) counts every model attempt,
+**Budget.** `pilot.model_call_budget` (45; was 15 for the first test) counts every model attempt,
 including retries, per batch, stored in the database before each call, so a
 resume never gets a fresh allowance. At the limit the run pauses with
 everything saved; raising it is your decision. A call that gets no reply at
@@ -95,6 +95,34 @@ not measurable on a subscription plan.
 **Outreach states** (`unreviewed`, `reviewed`, `contacted`, `do_not_contact`,
 `rejected`) are only ever set by `harvey pilot mark`. Veyra never infers that
 outreach happened.
+
+## Daily scouting (approved 2026-10-29)
+
+```bash
+harvey pilot schedule on       # every day at 07:00, or when the Mac next wakes
+harvey pilot schedule status
+harvey pilot schedule off
+harvey pilot daily             # the same run, by hand
+```
+
+`harvey pilot daily` finishes the current batch, or starts the next one once
+it is done or out of budget. A batch is ~100 companies (80 US, 20 EU). Each
+batch searches a few cities (`cities_per_batch`), rotating through the list
+in `veyra.yaml`, and later visits to a city take results not yet researched.
+Only one run at a time (a lock file next to the database). Output goes to
+`data/pilot-daily.log`. The job is a macOS LaunchAgent
+(`~/Library/LaunchAgents/com.veyra.pilot.daily.plist`); it needs the Mac on
+or asleep (not shut down) and a valid `claude login`.
+
+**Hand-off for sending.** Dashboard → Research → *Download leads* gives a
+spreadsheet of every picked company (all days) with its published role inbox,
+phone, subject and draft. It leaves out companies marked rejected,
+do-not-contact or contacted. Sending is done by hand outside Veyra; mark each
+sent company *I contacted them* so it never comes back.
+
+**Pacing.** Send in waves (for example 15–20 a week), wait about a week for
+replies, and only send the next wave when there is room for calls. The
+backlog of picked leads waits in the dashboard meanwhile.
 
 ## Outputs
 

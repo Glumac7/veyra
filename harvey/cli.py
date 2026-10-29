@@ -2,9 +2,11 @@
 
 import argparse
 import asyncio
+import os
 import subprocess
 import sys
 import textwrap
+from datetime import datetime
 from pathlib import Path
 
 
@@ -944,8 +946,49 @@ def cmd_sending(args):
     asyncio.run(_run())
 
 
+PILOT_JOB = "com.veyra.pilot.daily"
+
+
+def pilot_schedule(action: str, hour: int = 7) -> str:
+    """Turn the daily research run on or off (a macOS LaunchAgent). Research only:
+    it runs `harvey pilot daily`, which can't send anything."""
+    import plistlib
+    import shutil
+    from harvey.paths import PROJECT_ROOT
+    plist = Path.home() / "Library" / "LaunchAgents" / f"{PILOT_JOB}.plist"
+    domain = f"gui/{os.getuid()}"
+    if action == "on":
+        claude = shutil.which("claude")
+        if not claude:
+            return "Claude CLI not found on PATH: install it and run `claude login` first."
+        plist.parent.mkdir(parents=True, exist_ok=True)
+        log = str(PROJECT_ROOT / "data" / "pilot-daily.log")
+        plist.write_bytes(plistlib.dumps({
+            "Label": PILOT_JOB,
+            "ProgramArguments": [str(Path(sys.executable).parent / "harvey"), "pilot", "daily"],
+            "WorkingDirectory": str(PROJECT_ROOT),
+            "EnvironmentVariables": {"PATH": f"{Path(claude).parent}:/usr/bin:/bin:/usr/sbin:/sbin"},
+            "StartCalendarInterval": {"Hour": hour, "Minute": 0},
+            "StandardOutPath": log, "StandardErrorPath": log,
+        }))
+        subprocess.run(["launchctl", "bootout", domain, str(plist)], capture_output=True)
+        r = subprocess.run(["launchctl", "bootstrap", domain, str(plist)], capture_output=True, text=True)
+        if r.returncode:
+            return f"Could not load the schedule: {r.stderr.strip()}"
+        return f"On: research runs every day at {hour:02d}:00 (or when the Mac wakes). Log: data/pilot-daily.log"
+    if action == "off":
+        subprocess.run(["launchctl", "bootout", domain, str(plist)], capture_output=True)
+        plist.unlink(missing_ok=True)
+        return "Off: no scheduled research."
+    loaded = subprocess.run(["launchctl", "print", f"{domain}/{PILOT_JOB}"], capture_output=True).returncode == 0
+    return "On (daily)." if loaded else "Off."
+
+
 def cmd_pilot(args):
     """Veyra research pilot: resume the current batch, show it, or record outreach by hand."""
+    if args.pilot_action == "schedule":
+        print(f"\n  {pilot_schedule(args.domain or 'status')}\n")
+        return
     from harvey.config import load_config
     from harvey.pilot import Pilot
     from harvey.state import StateManager
@@ -973,7 +1016,14 @@ def cmd_pilot(args):
             print(f"  Model calls: {await pilot.calls_used(b)}/{pilot.p['model_call_budget']}")
             print(f"  Usage (all batches): {await pilot.usage()}\n")
             return
-        result = await pilot.run()
+        import fcntl
+        lock = open(state.db_path + ".pilot.lock", "w")
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            sys.exit("  Another research run is already going; leaving it alone.")
+        print(f"\n  {datetime.now():%Y-%m-%d %H:%M} pilot {args.pilot_action}")
+        result = await (pilot.daily() if args.pilot_action == "daily" else pilot.run())
         print(f"\n  Batch {result['batch']}: {result['counts']}")
         print(f"  Model calls: {result['calls']}/{pilot.p['model_call_budget']} (incl. retries)")
         print(f"  Usage (all batches): {result['usage']}")
@@ -1141,8 +1191,8 @@ def main():
     sub = subparsers.add_parser(
         "pilot", help="Veyra research pilot (research-only; never sends)")
     sub.add_argument("pilot_action", nargs="?", default="status",
-                     choices=["run", "status", "new-batch", "mark"])
-    sub.add_argument("domain", nargs="?", default="")
+                     choices=["run", "daily", "status", "new-batch", "mark", "schedule"])
+    sub.add_argument("domain", nargs="?", default="", help="for mark: the domain; for schedule: on|off")
     sub.add_argument("--state", default="", help="for mark: outreach state to record")
     sub.add_argument("--note", default="", help="for mark: a short note")
     sub.set_defaults(func=cmd_pilot)

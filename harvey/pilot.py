@@ -359,10 +359,16 @@ class Pilot:
             have = len([r for r in await self.rows(batch) if r["region"] == region])
             # Spread the target over every (term, city) so one dense query
             # can't fill a region; the surplus fills any gap afterwards.
-            per_query = max(1, spec["target"] // (len(spec["cities"]) * len(spec["terms"])))
+            # Each batch searches a few cities, rotating, so a day's run stays
+            # light on the free map service and later days reach new places.
+            names = list(spec["cities"])
+            k = min(len(names), int(spec.get("cities_per_batch") or len(names)))
+            start = ((batch - 1) * k) % len(names)
+            cities = {c: spec["cities"][c] for c in (names[start:] + names[:start])[:k]}
+            per_query = max(1, spec["target"] // (len(cities) * len(spec["terms"])))
             leftovers = []
             for term in spec["terms"]:
-                for city, cs in spec["cities"].items():
+                for city, cs in cities.items():
                     if have >= spec["target"]:
                         break
                     before = {r["id"] for r in await self._q("SELECT id FROM companies")}
@@ -370,9 +376,15 @@ class Pilot:
                                        coordinate=cs["coordinate"])
                     report = await run_discovery(self.state, self.config, "osm", [q], max_spend=0.0)
                     notes += report.errors
+                    # Everything this query returned that we haven't researched,
+                    # whether new to the database or found by an earlier query:
+                    # the same query on a later day reaches further down its list.
+                    seen = {r["company_id"] for r in await self._q(
+                        "SELECT DISTINCT company_id FROM observations WHERE run_id = ?",
+                        (report.run_id,))} if report.run_id else set()
                     found = [c["id"] for c in await self._q(
                         "SELECT id FROM companies WHERE domain != '' ORDER BY created_at")
-                        if c["id"] not in before and c["id"] not in known]
+                        if (c["id"] not in before or c["id"] in seen) and c["id"] not in known]
                     for cid in found[:per_query]:
                         await add(cid, region, city, cs["timezone"])
                         have += 1
@@ -510,6 +522,33 @@ class Pilot:
         result["calls"] = await self.calls_used(batch)
         result["usage"] = await self.usage()
         return result
+
+    async def daily(self) -> dict:
+        """One scheduled run: carry on with today's batch, or start the next
+        one once the current batch is finished or out of budget."""
+        await self.init()
+        b = await self.batch()
+        pending = await self.rows(b, "candidate", "evidence", "triaged", "shortlisted", "drafted")
+        started = await self.state.get_setting(f"veyra_discovered_batch_{b}")
+        spent = await self.calls_used(b) >= int(self.p["model_call_budget"])
+        if started and (not pending or spent):
+            await self.new_batch()
+        return await self.run()
+
+    async def leads(self) -> list[dict]:
+        """Every picked company in every batch, with its contact routes and draft."""
+        rows = await self._q(
+            "SELECT r.*, c.name, c.domain, c.website, c.phone AS map_phone, c.source_url AS map_url "
+            "FROM veyra_research r JOIN companies c ON c.id = r.company_id "
+            "WHERE r.status IN ('drafted', 'reviewed') ORDER BY r.batch DESC, r.rowid")
+        for r in rows:
+            ev = self.evidence(r)
+            r["role_emails"] = [e["value"] for e in ev.get("emails", []) if ROLE_INBOX.match(e["value"])]
+            r["phones"] = [p["value"] for p in ev.get("phones", [])] + (
+                [r["map_phone"]] if r.get("map_phone") else [])
+            r["triage"] = json.loads(r["triage_json"] or "{}")
+            r["verdict"] = json.loads(r["review_json"] or "{}").get("verdict", "")
+        return rows
 
     async def new_batch(self) -> int:
         n = await self.batch() + 1

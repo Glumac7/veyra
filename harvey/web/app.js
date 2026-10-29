@@ -449,28 +449,34 @@ async function loadResearch() {
     return;
   }
   const u = d.usage || {};
-  let html = '<div class="card"><div class="card-head"><h3>Batch ' + d.batch + '</h3>' +
-    '<span class="meta">' + d.rows.length + ' companies looked at · ' + picked.length + ' picked · ' +
+  const today = d.rows.filter(r => r.batch === d.batch).length;
+  let html = '<div class="card"><div class="card-head"><h3>Batch ' + d.batch + ' (current)</h3>' +
+    '<span class="meta">' + today + ' companies in this batch · ' + picked.length + ' picked in total · ' +
     'model calls ' + d.calls + ' of ' + d.budget + ' · ' + (u.output || 0).toLocaleString() + ' output tokens</span></div></div>';
 
-  html += '<h3 style="margin:18px 0 8px">Picked</h3>';
+  html += '<div style="display:flex;align-items:center;justify-content:space-between;margin:18px 0 8px">' +
+    '<h3 style="margin:0">Picked (all days)</h3>' +
+    '<button class="btn btn-sm" onclick="downloadCsv(\'/api/research/leads.csv\', \'veyra-leads.csv\', this)">' +
+    'Download leads (spreadsheet)</button></div>';
   if (!picked.length) html += '<div class="empty"><div class="copy">None picked in this batch.</div></div>';
   else {
     html += '<div class="table-card"><table><thead><tr><th>Company</th><th>Where</th><th class="num">Fit</th>' +
-      '<th>Reviewer</th><th>Your decision</th></tr></thead><tbody>';
+      '<th>Reviewer</th><th>Your decision</th><th class="num">Batch</th></tr></thead><tbody>';
     picked.forEach(r => {
       html += '<tr class="clickable" onclick="openResearch(\'' + escHtml(r.id) + '\')">' +
         '<td><div class="cell-stack"><span class="cell-main">' + escHtml(r.name) + '</span>' +
         '<span class="cell-sub">' + escHtml(r.what) + '</span></div></td>' +
         '<td>' + escHtml(r.city) + '</td><td class="num">' + (r.fit ?? '') + '</td>' +
         '<td><span class="tag">' + escHtml(r.verdict || 'not reviewed') + '</span></td>' +
-        '<td>' + escHtml(OUTREACH_LABEL[r.outreach_state] || r.outreach_state) + '</td></tr>';
+        '<td>' + escHtml(OUTREACH_LABEL[r.outreach_state] || r.outreach_state) + '</td>' +
+        '<td class="num muted">' + r.batch + '</td></tr>';
     });
-    html += '</tbody></table></div><div class="table-foot">Click a company to read its write-up and draft email.</div>';
+    html += '</tbody></table></div><div class="table-foot">Click a company to read its write-up and draft email. ' +
+      'The download leaves out anyone you rejected, marked do-not-contact or already contacted.</div>';
   }
 
   const rest = d.rows.filter(r => !r.has_profile);
-  html += '<h3 style="margin:18px 0 8px">Looked at, not picked</h3>' +
+  html += '<h3 style="margin:18px 0 8px">Today\'s batch: looked at, not picked</h3>' +
     '<div class="table-card"><table><thead><tr><th>Company</th><th>Where</th><th>Result</th>' +
     '<th class="num">Fit</th><th>Why</th></tr></thead><tbody>';
   rest.forEach(r => {

@@ -202,7 +202,7 @@ def test_fresh_clone_has_settings_but_no_state_or_secrets():
                               "harvey.local.yaml", "backups/x.tar.gz"], cwd=ROOT,
                              capture_output=True, text=True).stdout.split()
     assert len(ignored) == 4
-    assert P.load_settings()["pilot"]["model_call_budget"] == 15
+    assert P.load_settings()["pilot"]["model_call_budget"] == 45
 
 
 def test_discovery_spreads_over_cities(tmp_path, monkeypatch):
@@ -255,3 +255,58 @@ def test_dashboard_research_tab(tmp_path, monkeypatch):
         after = {r["id"]: r for r in c.get("/api/research").json()["rows"]}
         assert after[row["id"]]["outreach_state"] == "rejected"
         assert c.get("/api/research/nope").status_code == 404
+        csv_text = c.get("/api/research/leads.csv").text
+        assert row["name"] not in csv_text          # rejected: left out of the download
+        assert P.DRAFT_LABEL not in csv_text and "info@" in csv_text and "a.person@" not in csv_text
+
+
+def test_daily_moves_to_the_next_batch_only_when_done(tmp_path, monkeypatch):
+    async def go():
+        state = await _fixture_state(tmp_path, monkeypatch)
+        brain = FakeBrain(fail_first=1)
+        p = _pilot(state, tmp_path, brain)
+        res = await p.daily()                     # day 1, interrupted: model gave no reply
+        assert res["batch"] == 1 and res["paused"]
+        res = await p.daily()                     # day 2: finishes batch 1, no new batch
+        assert res["batch"] == 1 and res["counts"] == {"reviewed": 3}
+        res = await p.daily()                     # day 3: batch 1 done -> batch 2
+        assert res["batch"] == 2
+        assert len(await p.leads()) == 3          # the backlog keeps earlier days' picks
+    asyncio.run(go())
+
+
+def test_later_batches_rotate_cities_and_reach_known_companies(tmp_path, monkeypatch):
+    async def go():
+        state = StateManager(str(tmp_path / "t.db"))
+        await state.init_db()
+        from harvey.signals import seed_signal_catalog
+        await seed_signal_catalog(state)
+        asked = []
+
+        async def same_list(state_, config, provider, queries, max_spend=0.0):
+            from harvey.collectors.discover import DiscoveryReport
+            q = queries[0]
+            asked.append(q.location)
+            rep = DiscoveryReport(run_id=await state_.start_run("osm", params={}))
+            for i in range(4):                    # the same 4 results every day
+                dom = f"{P._slug(q.location)}-{i}.example.com"
+                cid = await state_.add_company(Company(name=dom, domain=dom))
+                await state_.add_observation("CONTACT_FOUND", company_id=cid, value_num=1,
+                                             run_id=rep.run_id)
+            return rep
+
+        monkeypatch.setattr("harvey.collectors.discover.run_discovery", same_list)
+        cities = {c: {"coordinate": "1,1,5", "timezone": "America/Chicago"}
+                  for c in ("Aville, IL", "Btown, OH", "Cburg, GA", "Dfield, TN")}
+        p = _pilot(state, tmp_path, FakeBrain(), regions={"US": {
+            "target": 2, "cities_per_batch": 2, "terms": ["hvac"], "cities": cities}})
+        await p.init()
+        await p.discover(1)
+        await p.new_batch()
+        await p.discover(2)
+        assert asked == ["Aville, IL", "Btown, OH", "Cburg, GA", "Dfield, TN"]
+        await p.new_batch()
+        await p.discover(3)                       # back to Aville: takes results not yet researched
+        got = [r["domain"] for r in await p.rows(3)]
+        assert got and not set(got) & {r["domain"] for b in (1, 2) for r in await p.rows(b)}
+    asyncio.run(go())

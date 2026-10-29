@@ -17,14 +17,18 @@ offer: >
   artificial lock-in. Capacity is limited: we take on few clients at a time.
 
 pilot:
-  model_call_budget: 15       # model calls incl. retries, per batch, across resumptions
-  max_profiles: 5             # shortlist at most this many; fewer if evidence is weak
+  # Sized for one batch a day of ~100 companies (raised from the 25-company
+  # test on 2026-10-29 at the user's request): triage 10 calls, up to 10
+  # drafts, 1 review, plus retries.
+  model_call_budget: 45       # model calls incl. retries, per batch, across resumptions
+  max_profiles: 10            # shortlist at most this many; fewer if evidence is weak
   min_fit: 6                  # triage score (0-10) needed to be shortlisted
-  triage_chunk: 5             # companies per triage call
-  per_query_limit: 60         # OSM results per (term, city)
+  triage_chunk: 10            # companies per triage call
+  per_query_limit: 300        # OSM results per (term, city); later days go further down the list
   regions:
     US:
-      target: 20
+      target: 80
+      cities_per_batch: 6     # rotate through the list, a few cities a day
       terms: ["wholesale distributor", "hvac", "plumbing", "electrician"]
       cities:                 # US Eastern and Central only
         "Chicago, IL":      {coordinate: "41.8781,-87.6298,25", timezone: "America/Chicago"}
@@ -35,10 +39,50 @@ pilot:
         "Nashville, TN":    {coordinate: "36.1627,-86.7816,25", timezone: "America/Chicago"}
         "Pittsburgh, PA":   {coordinate: "40.4406,-79.9959,25", timezone: "America/New_York"}
         "Indianapolis, IN": {coordinate: "39.7684,-86.1581,25", timezone: "America/Indiana/Indianapolis"}
+        "Detroit, MI":        {coordinate: "42.3314,-83.0458,25", timezone: "America/Detroit"}
+        "Cleveland, OH":      {coordinate: "41.4993,-81.6944,25", timezone: "America/New_York"}
+        "Cincinnati, OH":     {coordinate: "39.1031,-84.5120,25", timezone: "America/New_York"}
+        "St. Louis, MO":      {coordinate: "38.6270,-90.1994,25", timezone: "America/Chicago"}
+        "Kansas City, MO":    {coordinate: "39.0997,-94.5786,25", timezone: "America/Chicago"}
+        "Minneapolis, MN":    {coordinate: "44.9778,-93.2650,25", timezone: "America/Chicago"}
+        "Louisville, KY":     {coordinate: "38.2527,-85.7585,25", timezone: "America/Kentucky/Louisville"}
+        "Memphis, TN":        {coordinate: "35.1495,-90.0490,25", timezone: "America/Chicago"}
+        "Birmingham, AL":     {coordinate: "33.5186,-86.8104,25", timezone: "America/Chicago"}
+        "Richmond, VA":       {coordinate: "37.5407,-77.4360,25", timezone: "America/New_York"}
+        "Raleigh, NC":        {coordinate: "35.7796,-78.6382,25", timezone: "America/New_York"}
+        "Philadelphia, PA":   {coordinate: "39.9526,-75.1652,25", timezone: "America/New_York"}
+        "Baltimore, MD":      {coordinate: "39.2904,-76.6122,25", timezone: "America/New_York"}
+        "Boston, MA":         {coordinate: "42.3601,-71.0589,25", timezone: "America/New_York"}
+        "Tampa, FL":          {coordinate: "27.9506,-82.4572,25", timezone: "America/New_York"}
+        "Orlando, FL":        {coordinate: "28.5383,-81.3792,25", timezone: "America/New_York"}
+        "Jacksonville, FL":   {coordinate: "30.3322,-81.6557,25", timezone: "America/New_York"}
+        "Dallas, TX":         {coordinate: "32.7767,-96.7970,25", timezone: "America/Chicago"}
+        "Houston, TX":        {coordinate: "29.7604,-95.3698,25", timezone: "America/Chicago"}
+        "Austin, TX":         {coordinate: "30.2672,-97.7431,25", timezone: "America/Chicago"}
+        "San Antonio, TX":    {coordinate: "29.4241,-98.4936,25", timezone: "America/Chicago"}
+        "Oklahoma City, OK":  {coordinate: "35.4676,-97.5164,25", timezone: "America/Chicago"}
+        "Omaha, NE":          {coordinate: "41.2565,-95.9345,25", timezone: "America/Chicago"}
+        "Des Moines, IA":     {coordinate: "41.5868,-93.6250,25", timezone: "America/Chicago"}
+        "Grand Rapids, MI":   {coordinate: "42.9634,-85.6681,25", timezone: "America/Detroit"}
+        "Buffalo, NY":        {coordinate: "42.8864,-78.8784,25", timezone: "America/New_York"}
+        "Hartford, CT":       {coordinate: "41.7658,-72.6734,25", timezone: "America/New_York"}
+        "New Orleans, LA":    {coordinate: "29.9511,-90.0715,25", timezone: "America/Chicago"}
+        "Madison, WI":        {coordinate: "43.0731,-89.4012,25", timezone: "America/Chicago"}
+        "Knoxville, TN":      {coordinate: "35.9606,-83.9207,25", timezone: "America/New_York"}
     EU:
-      target: 5
+      target: 20              # EU: email generally needs prior consent, so phone first
+      cities_per_batch: 2
       terms: ["wholesale distributor", "hvac", "plumbing", "electrician"]
       cities:
         "Vienna, AT": {coordinate: "48.2082,16.3738,20", timezone: "Europe/Vienna"}
         "Munich, DE": {coordinate: "48.1351,11.5820,20", timezone: "Europe/Berlin"}
         "Linz, AT":   {coordinate: "48.3069,14.2858,20", timezone: "Europe/Vienna"}
+        "Graz, AT":           {coordinate: "47.0707,15.4395,20", timezone: "Europe/Vienna"}
+        "Salzburg, AT":       {coordinate: "47.8095,13.0550,20", timezone: "Europe/Vienna"}
+        "Innsbruck, AT":      {coordinate: "47.2692,11.4041,20", timezone: "Europe/Vienna"}
+        "Berlin, DE":         {coordinate: "52.5200,13.4050,20", timezone: "Europe/Berlin"}
+        "Hamburg, DE":        {coordinate: "53.5511,9.9937,20", timezone: "Europe/Berlin"}
+        "Frankfurt, DE":      {coordinate: "50.1109,8.6821,20", timezone: "Europe/Berlin"}
+        "Stuttgart, DE":      {coordinate: "48.7758,9.1829,20", timezone: "Europe/Berlin"}
+        "Cologne, DE":        {coordinate: "50.9375,6.9603,20", timezone: "Europe/Berlin"}
+        "Nuremberg, DE":      {coordinate: "49.4521,11.0767,20", timezone: "Europe/Berlin"}
