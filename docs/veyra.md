@@ -186,6 +186,14 @@ contacted, replied, meeting, won, lost, do-not-contact, rejected), add notes,
 download the spreadsheet. Names are typed once per browser; every change is
 kept in the lead's history. The site never sends anything.
 
+The usual round: open a lead marked with a blue dot (new and unclaimed),
+*Claim this lead*, copy the subject and email text, send it by hand from your
+own mailbox, then *I sent it: mark as contacted*. Above each draft the board
+lists what to fix first: unfilled placeholders such as `[YOUR NAME]`, and any
+sentence that says how many we are or that we are small (we describe the
+company and its specialty, never its size). Each lead has its own link
+(`#lead=<id>`) to share with a colleague.
+
 - **Upload:** every `harvey pilot run` / `daily` ends by uploading picked leads
   (`harvey pilot sync` does it by hand). It needs `VEYRA_SITE_URL` and
   `VEYRA_SYNC_KEY` in `.env`; the same key is `SYNC_KEY` on Vercel.

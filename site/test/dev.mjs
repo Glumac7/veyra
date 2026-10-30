@@ -9,7 +9,7 @@ Object.assign(process.env, { SITE_PASSWORD: "dev", SESSION_SECRET: "dev", SYNC_K
 const pg = new PGlite();
 const api = makeHandler(async (t, p = []) => (await pg.query(t, p)).rows);
 const pub = path.join(import.meta.dirname, "..", "public");
-const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".txt": "text/plain" };
+const types = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".woff2": "font/woff2", ".txt": "text/plain" };
 
 http.createServer((req, res) => {
   if (req.url.startsWith("/api/")) return api(req, res);

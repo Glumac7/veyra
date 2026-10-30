@@ -5,50 +5,78 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
 <title>Veyra Leads</title>
+<link rel="preload" href="/fonts/Geist-Variable.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/app.css">
 </head>
 <body>
-
-<div id="login" class="center" hidden>
-  <form class="card login" onsubmit="login(event)">
-    <h1>Veyra</h1>
-    <p class="muted">Shared lead board. Enter the team password.</p>
-    <input id="pw" type="password" placeholder="Password" autocomplete="current-password" required>
-    <button type="submit">Open</button>
-    <p id="login-err" class="err"></p>
-  </form>
-</div>
-
-<div id="ask-name" class="center" hidden>
-  <form class="card login" onsubmit="saveName(event)">
-    <h1>Who are you?</h1>
-    <p class="muted">Your first name. It shows next to leads you claim and notes you write.</p>
-    <input id="name-input" placeholder="Your name" maxlength="60" required>
-    <button type="submit">Continue</button>
-  </form>
-</div>
+<a class="skip" href="#detail">Skip to the open lead</a>
 
 <div id="app" hidden>
-  <header>
-    <h1>Veyra <span class="muted">leads</span></h1>
-    <div class="who">You: <b id="me"></b> · <a href="#" onclick="changeName(event)">change</a> · <a href="#" onclick="logout(event)">log out</a></div>
+  <header class="top">
+    <span class="mark">Veyra</span>
+    <details class="menu">
+      <summary><span class="sr">Signed in as </span><b id="me"></b></summary>
+      <div class="menu-list">
+        <a href="/api/leads.csv" download>Download spreadsheet</a>
+        <button type="button" class="link" onclick="changeName()">Change name</button>
+        <button type="button" class="link" onclick="logout()">Log out</button>
+      </div>
+    </details>
   </header>
 
-  <div class="bar">
-    <input id="search" type="search" placeholder="Search company, city, what they do…" oninput="render()">
-    <select id="f-owner" onchange="render()"></select>
-    <select id="f-status" onchange="render()"></select>
-    <select id="f-region" onchange="render()"><option value="">All regions</option><option>US</option><option>EU</option></select>
-    <a class="btn" href="/api/leads.csv">Download spreadsheet</a>
-  </div>
-  <div id="summary" class="muted"></div>
+  <p id="err" class="banner" role="alert" hidden></p>
 
-  <div class="layout">
-    <div class="list"><table><thead><tr><th>Company</th><th>Where</th><th class="num">Fit</th><th>Owner</th><th>Status</th></tr></thead>
-      <tbody id="rows"></tbody></table></div>
-    <aside id="detail" class="detail"><p class="muted">Pick a lead to see its write-up, draft email and notes.</p></aside>
-  </div>
+  <main class="layout">
+    <section class="list" aria-labelledby="leads-title">
+      <div class="list-head">
+        <h1 id="leads-title">Leads</h1>
+        <p id="summary" class="summary" aria-live="polite"></p>
+        <label class="sr" for="search">Search leads</label>
+        <input id="search" type="search" placeholder="Company, city or trade" oninput="render()">
+        <div class="filters">
+          <label class="sr" for="f-owner">Owner</label>
+          <select id="f-owner" onchange="render()"></select>
+          <label class="sr" for="f-status">Status</label>
+          <select id="f-status" onchange="render()"></select>
+          <label class="sr" for="f-region">Region</label>
+          <select id="f-region" onchange="render()"><option value="">US and EU</option><option value="US">US</option><option value="EU">EU</option></select>
+        </div>
+      </div>
+      <ul id="rows" class="rows"></ul>
+    </section>
+
+    <section id="detail" class="detail" tabindex="-1" aria-label="Open lead">
+      <div class="empty">
+        <h2>Pick a lead</h2>
+        <p>Its research, the first email draft and the team's notes open here.</p>
+      </div>
+    </section>
+  </main>
+
+  <p id="status" class="toast" role="status" aria-live="polite"></p>
 </div>
+
+<main id="login" class="center" hidden>
+  <form class="gate" onsubmit="login(event)">
+    <p class="mark">Veyra</p>
+    <h1>Lead board</h1>
+    <label for="pw">Team password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <p id="login-err" class="err" role="alert"></p>
+    <button type="submit" class="primary">Open the board</button>
+  </form>
+</main>
+
+<main id="ask-name" class="center" hidden>
+  <form class="gate" onsubmit="saveName(event)">
+    <p class="mark">Veyra</p>
+    <h1>Who's working?</h1>
+    <label for="name-input">Your first name</label>
+    <input id="name-input" maxlength="60" autocomplete="given-name" aria-describedby="name-help" required>
+    <p id="name-help" class="hint">Shown next to the leads you claim and the notes you write. Saved in this browser.</p>
+    <button type="submit" class="primary">Continue</button>
+  </form>
+</main>
 
 <script src="/app.js"></script>
 </body>

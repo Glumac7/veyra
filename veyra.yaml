@@ -9,12 +9,16 @@ sender:                       # placeholders until the GmbH supplies real ones
   company: "[GMBH NAME]"
   domain: "[GMBH-DOMAIN.example]"
 
+# Describe the company, never its size: no headcount, no "small", no "few clients".
 offer: >
-  Two senior engineers (one Vienna-based) working through a small Austrian
-  GmbH. We automate workflows and integrate existing systems, using AI only
-  where it is the right tool. We start with a paid discovery engagement,
-  implement improvements in stages and offer ongoing support, without
-  artificial lock-in. Capacity is limited: we take on few clients at a time.
+  A Vienna-based engineering consultancy (Austrian GmbH). Our specialty is
+  automating the order-to-invoice work of distributors, wholesalers and
+  field-service businesses: quotes, order intake, supplier price lists,
+  service calls and documents, and connecting the shop, ERP and accounting
+  systems they already run. We prefer proven software over custom builds and
+  use AI only where it clearly beats the alternative. Engagements start with
+  a short paid discovery, then improvements in stages with ongoing support,
+  and no lock-in.
 
 pilot:
   # Sized for one batch a day of ~100 companies (raised from the 25-company

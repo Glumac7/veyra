@@ -342,3 +342,17 @@ def test_sync_uploads_leads_and_brings_back_decisions(tmp_path, monkeypatch):
         assert states[lead["id"]] == "contacted"            # 'meeting' on the board
         assert list(states.values()).count("unreviewed") == 2
     asyncio.run(go())
+
+
+def test_drafts_never_give_away_our_size():
+    for said in ["Wir sind zwei Senior-Engineers (einer davon in Wien)", "Wir sind zwei erfahrene Softwareentwickler",
+                 "über eine kleine österreichische GmbH", "nur mit wenigen Kunden gleichzeitig",
+                 "We are two engineers in Vienna", "a small Austrian GmbH", "one of us is in Vienna"]:
+        assert P.HEADCOUNT.search(said), said
+    for fine in ["Wir sind ein Ingenieurbüro aus Wien", "zwei Standorte in Linz", "two branches and a warehouse",
+                 "Mit freundlichen Grüßen", "a Vienna-based engineering consultancy"]:
+        assert not P.HEADCOUNT.search(fine), fine
+    prompt = P.draft_prompt("offer", SETTINGS["sender"], "block", {})
+    assert "Never say or hint how many we are" in prompt and "Vienna" in prompt
+    offer = (ROOT / "veyra.yaml").read_text(encoding="utf-8").split("offer:")[1].split("pilot:")[0]
+    assert not P.HEADCOUNT.search(offer) and "Vienna" in offer
