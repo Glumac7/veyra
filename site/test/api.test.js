@@ -62,6 +62,11 @@ test("password, sync, claim, status, notes and download", async () => {
     assert.deepEqual(again.body.decisions.map((d) => [d.id, d.status, d.owner]), [["c1", "contacted", "Ana"]]);
     assert.equal((await call("/api/lead?id=c1")).body.status, "contacted");
 
+    // the scouting side can withdraw a lead nobody has touched, never a claimed one
+    await call("/api/sync", post({ leads: [{ ...LEAD, id: "c2", name: "Beta" }] }, { authorization: "Bearer test-sync-key" }));
+    await call("/api/sync", post({ remove: ["c1", "c2"] }, { authorization: "Bearer test-sync-key" }));
+    assert.deepEqual((await call("/api/leads")).body.map((l) => l.id), ["c1"]);
+
     const csv = (await call("/api/leads.csv")).body;
     assert.match(csv, /Alpha Supply/);
     assert.match(csv, /contacted/);

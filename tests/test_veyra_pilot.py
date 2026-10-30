@@ -319,6 +319,7 @@ def test_sync_uploads_leads_and_brings_back_decisions(tmp_path, monkeypatch):
     def board(request):
         sent["auth"] = request.headers["authorization"]
         sent["leads"] = json.loads(request.content)["leads"]
+        sent["remove"] = json.loads(request.content)["remove"]
         first = sent["leads"][0]["id"]
         return httpx.Response(200, json={"added": len(sent["leads"]), "decisions": [
             {"id": first, "status": "meeting"}, {"id": "unknown", "status": "contacted"}]})
@@ -333,7 +334,7 @@ def test_sync_uploads_leads_and_brings_back_decisions(tmp_path, monkeypatch):
         await p.run()
         r = await p.sync("https://board.example.com/", "k")
         assert r == {"uploaded": 3, "added": 3, "decisions": 1}
-        assert sent["auth"] == "Bearer k"
+        assert sent["auth"] == "Bearer k" and sent["remove"] == []
         lead = sent["leads"][0]
         assert P.DRAFT_LABEL in lead["profile_md"] and "a.person@" not in json.dumps(sent)
         assert lead["emails"].startswith("info@")

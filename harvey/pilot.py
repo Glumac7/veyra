@@ -515,7 +515,8 @@ class Pilot:
                 await self.shortlist(batch)
                 for _ in range(2):
                     await self.draft(batch)
-                await self.review(batch)
+                for _ in range(2):          # an unusable reply leaves rows 'drafted'; retry once
+                    await self.review(batch)
         except BudgetReached:
             result["paused"] = "model-call budget reached"
         except ModelUnavailable:
@@ -567,8 +568,12 @@ class Pilot:
             "emails": "; ".join(r["role_emails"]), "phones": "; ".join(r["phones"]),
             "subject": r["draft_subject"], "draft": r["draft_body"], "profile_md": self.profile_md(r),
         } for r in await self.leads()]
+        # Leads the reviewer dropped after an earlier upload come off the board
+        # (the site only removes ones nobody has claimed or touched).
+        remove = [r["company_id"] for r in await self._q(
+            "SELECT company_id FROM veyra_research WHERE status = 'dropped'")]
         async with httpx.AsyncClient(timeout=60) as client:
-            resp = await client.post(url.rstrip("/") + "/api/sync", json={"leads": leads},
+            resp = await client.post(url.rstrip("/") + "/api/sync", json={"leads": leads, "remove": remove},
                                      headers={"Authorization": f"Bearer {key}"})
             resp.raise_for_status()
             data = resp.json()

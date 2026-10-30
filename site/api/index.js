@@ -88,8 +88,12 @@ export function makeHandler(q) {
       if (path === "/api/sync" && req.method === "POST") {
         const key = (req.headers.authorization || "").replace(/^Bearer /, "");
         if (!process.env.SYNC_KEY || !same(key, process.env.SYNC_KEY)) return send(res, 401, {error: "Bad sync key."});
-        const { leads = [] } = await body(req);
+        const { leads = [], remove = [] } = await body(req);
         let added = 0;
+        for (const id of remove) {
+          await db("DELETE FROM leads WHERE id = $1 AND status = 'new' AND owner = '' AND NOT EXISTS " +
+                   "(SELECT 1 FROM events WHERE lead_id = $1 AND kind <> 'added')", [String(id)]);
+        }
         for (const l of leads) {
           const vals = LEAD_FIELDS.map((f) => l[f] ?? (f === "batch" ? 0 : f === "fit" ? null : ""));
           const r = await db(
