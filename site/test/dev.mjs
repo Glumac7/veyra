@@ -22,7 +22,7 @@ http.createServer((req, res) => {
     id: `c${i}`, name, domain: `${name.split(" ")[0].toLowerCase()}.example.com`, city: "Testville, IL",
     region: i === 3 ? "EU" : "US", batch: 2, fit: 6 + i, verdict: "keep", what: `${name} sells parts and service`,
     emails: `info@${name.split(" ")[0].toLowerCase()}.example.com`, subject: "Question about orders",
-    draft: "Hello,\n\nA short fake draft.\n\nBest", profile_md: "# x\n## Verified facts\n- A fact — [https://example.com](https://example.com)\n## Hypotheses\n- **Unverified:** something" }));
+    draft: "Hello,\n\nA short fake draft.\n\nBest regards,\n[YOUR NAME]\n[GMBH NAME]", profile_md: "# x\n## Verified facts\n- A fact — [https://example.com](https://example.com)\n## Hypotheses\n- **Unverified:** something" }));
   await fetch("http://127.0.0.1:5600/api/sync", { method: "POST", headers: { authorization: "Bearer dev", "content-type": "application/json" }, body: JSON.stringify({ leads }) });
   console.log("preview on http://127.0.0.1:5600 (password: dev)");
 });
