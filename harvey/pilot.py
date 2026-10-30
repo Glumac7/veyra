@@ -218,7 +218,8 @@ RULES = """Rules:
 - Partner scope (hard rule): building-services contractors (HVAC, heating, plumbing, sanitary,
   ventilation; HKLS, Haustechnik, Installateur) use segment "building_services". A partner of
   ours serves them for quoting, estimating, tender/LV pricing and supplier quotes or price
-  lists. With these companies never offer, ask about or hypothesise on any of that. Look only
+  lists. With these companies never offer, ask about or hypothesise on any of that, and don't
+  name those topics at all, not even to say they're excluded. Look only
   for other office work: phone and service-call intake, scheduling and dispatch, maintenance
   contracts and renewals, service reports and documents, invoicing, and connecting the
   systems they already run. If only partner-scope work fits, score fit 3 or lower."""
