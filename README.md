@@ -1,4 +1,29 @@
-# Harvey
+# Veyra
+
+**Private, research-only B2B prospecting, adapted from [Harvey](https://github.com/ethanplusai/harvey).**
+
+Veyra finds B2B distributors and field-service businesses, reads their public
+websites, separates verified facts from hypotheses and unknowns, and writes a
+profile plus one review draft per worthwhile prospect. **It never sends
+anything**: email, LinkedIn, warmup, address guessing and the autonomous loop
+are blocked in code. Drafts are for a human to review.
+
+Veyra is an adaptation of Harvey by Ethan Rogers (MIT licence, see `LICENSE`).
+Harvey's code, history and copyright are kept; we added the research-only
+block, the research pilot (`harvey pilot`) and our docs. Internal names such
+as the `harvey` package and CLI are unchanged on purpose.
+
+**Start here: [docs/veyra.md](docs/veyra.md)** (setup on another Mac, running
+and resuming the pilot, outputs, backup/restore, single-host operation).
+
+---
+
+## Upstream Harvey documentation
+
+Everything below is Harvey's original README. Sending, mailbox, LinkedIn,
+warmup and autopilot features it describes are **disabled in Veyra**.
+
+## Harvey (upstream README)
 
 **An autonomous sales agent that runs on your Claude Code or Codex subscription.**
 

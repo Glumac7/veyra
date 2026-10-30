@@ -50,3 +50,15 @@ import harvey.humanize  # noqa: E402
 def _no_installed_humanizer(monkeypatch, tmp_path):
     """Tests never pick up the operator's real ~/.claude Humanizer skill."""
     monkeypatch.setattr(harvey.humanize, "SKILL_PATH", tmp_path / "no-humanizer.md")
+
+
+@pytest.fixture(autouse=True)
+def _harvey_send_logic(request, monkeypatch):
+    """Harvey's original tests exercise its send logic against fakes, so the
+    research-only block is lifted for them. Veyra's own tests (test_veyra_*)
+    always run with it on, as the shipped package does."""
+    from harvey import research_only
+
+    if not request.node.path.name.startswith("test_veyra"):
+        monkeypatch.setattr(research_only, "ACTIVE", False)
+    yield

@@ -534,6 +534,8 @@ async def _run_with_signals():
 
 def main():
     """Entry point."""
+    from harvey import research_only
+    research_only.refuse("The autonomous heartbeat loop")
     # Check for first-time setup
     if _needs_setup():
         if not sys.stdin.isatty():

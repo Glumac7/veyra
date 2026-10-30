@@ -152,6 +152,8 @@ class PreclearedClient:
         default_country: str = "",
         transport: httpx.AsyncBaseTransport | None = None,
     ):
+        from harvey import research_only
+        research_only.refuse("Precleared (sends recipient addresses to a third party)")
         self.sender_country = sender_country
         self.api_key = api_key or ""
         self.address_source = address_source

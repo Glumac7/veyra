@@ -30,6 +30,8 @@ from typing import Optional
 
 import dns.resolver
 import aiosmtplib
+
+from harvey import research_only
 import httpx
 
 logger = logging.getLogger("harvey.email_finder")
@@ -306,6 +308,7 @@ async def _hunter_domain_pattern(domain: str, api_key: str) -> Optional[tuple[st
     Returns (named_pattern, confidence 0-1), or None when Hunter has no
     pattern for the domain. Raises HunterUnavailable when it couldn't answer.
     """
+    research_only.refuse("Email pattern lookup")
     try:
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             resp = await client.get(
@@ -420,6 +423,7 @@ async def hunter_domain_people(
     callers must check hunter_searches_remaining() and record_hunter_search()
     first rather than rely on this failing gracefully to protect the quota.
     """
+    research_only.refuse("Email pattern lookup")
     try:
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             resp = await client.get(
@@ -510,6 +514,7 @@ async def verify_reoon(email: str, api_key: str) -> Optional[dict]:
     deliverable verdict; a 'role_account' (info@, office@) counts as valid
     only when Reoon also reports it deliverable.
     """
+    research_only.refuse("Email verification")
     try:
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             resp = await client.get(
@@ -536,6 +541,7 @@ async def verify_reoon(email: str, api_key: str) -> Optional[dict]:
 
 async def verify_zerobounce(email: str, api_key: str) -> Optional[dict]:
     """ZeroBounce — its 2026 engine is the reliable one for M365/Workspace catch-alls."""
+    research_only.refuse("Email verification")
     try:
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             resp = await client.get(
@@ -559,6 +565,7 @@ async def verify_zerobounce(email: str, api_key: str) -> Optional[dict]:
 
 
 async def verify_hunter(email: str, api_key: str) -> Optional[dict]:
+    research_only.refuse("Email verification")
     try:
         async with httpx.AsyncClient(timeout=API_TIMEOUT) as client:
             resp = await client.get(
@@ -584,6 +591,7 @@ async def verify_email_smtp(email: str) -> Optional[bool]:
     Returns True (accepted), False (rejected), or None (couldn't tell).
     Port 25 is blocked on most cloud hosts, so this frequently returns None.
     """
+    research_only.refuse("An SMTP verification probe")
     if "@" not in email:
         return False
     domain = email.rsplit("@", 1)[1]
@@ -712,6 +720,7 @@ async def verify_published_address(email: str, env=None) -> str:
     can be stale). A verifier's invalid verdict wins, and an inconclusive
     check stays an honest guess that is never sent.
     """
+    research_only.refuse("Email verification")
     email = (email or "").strip().lower()
     domain = email.partition("@")[2]
     if not domain:
@@ -762,6 +771,7 @@ async def find_email(
     or an address published as theirs) is never guessed or verified for
     this person: a verifier would confirm the other person's mailbox.
     """
+    research_only.refuse("Guessing an email address")
     domain = _clean_domain(domain)
     if not (first_name and last_name and domain):
         return EmailResult(email="", status="invalid")

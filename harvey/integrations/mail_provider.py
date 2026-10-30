@@ -118,6 +118,11 @@ class MailProvider(ABC):
 
     name: str = "base"
 
+    def __new__(cls, *args, **kwargs):
+        from harvey import research_only
+        research_only.refuse("Connecting a mailbox")
+        return super().__new__(cls)
+
     @abstractmethod
     def is_configured(self) -> bool:
         """Whether required credentials are present (no network)."""

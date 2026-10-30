@@ -60,3 +60,6 @@ harvey.local.yaml
 # Backups and in-progress writes from `harvey train` hold the same config.
 harvey.local.yaml.*
 harvey.yaml.*
+
+# Veyra: backups of the live database and research (see docs/veyra.md)
+backups/

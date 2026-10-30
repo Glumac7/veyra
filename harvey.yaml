@@ -46,7 +46,9 @@ icp:
 
 channels:
   email:
-    enabled: true
+    # Veyra is research-only: sending is blocked in code (harvey/research_only.py)
+    # whatever this says. Kept false so the config tells the same story.
+    enabled: false
     provider: "gmail"          # gmail (recommended) | microsoft | smtp | instantly
     max_daily_sends: 50
     require_approval: true      # native: review in Outbox; Instantly: sending held

@@ -539,6 +539,93 @@ async def get_company_contacts(company_id: str):
     return rows
 
 
+# ── Research (Veyra pilot) ──
+
+
+async def _pilot():
+    from harvey.pilot import Pilot
+    p = Pilot(_state())
+    await p.init()
+    return p
+
+
+@app.get("/api/research")
+async def get_research():
+    """The current batch: every researched company, its stage, fit and outreach state."""
+    import json as _json
+    if not DB_PATH.exists():
+        return {"batch": 1, "rows": [], "counts": {}, "calls": 0, "budget": 0, "usage": {}}
+    p = await _pilot()
+    batch = await p.batch()
+    rows = []
+    # Picked leads from every batch (the backlog), plus the rest of today's batch.
+    current = [r for r in await p.rows(batch) if r["status"] not in ("drafted", "reviewed")]
+    for r in await p.leads() + current:
+        t = _json.loads(r["triage_json"] or "{}")
+        rv = _json.loads(r["review_json"] or "{}")
+        rows.append({
+            "id": r["company_id"], "batch": r["batch"], "name": r["name"], "domain": r["domain"],
+            "city": r["city"], "region": r["region"], "status": r["status"],
+            "fit": t.get("fit"), "what": t.get("what_it_does", ""),
+            "why_not": "; ".join(t.get("poor_fit_reasons", [])[:2]),
+            "verdict": rv.get("verdict", ""), "subject": r["draft_subject"] or "",
+            "outreach_state": r["outreach_state"], "outreach_note": r["outreach_note"] or "",
+            "has_profile": r["status"] in ("drafted", "reviewed", "dropped"),
+        })
+    return {"batch": batch, "rows": rows, "counts": await p.counts(batch),
+            "calls": await p.calls_used(batch), "budget": p.p["model_call_budget"],
+            "usage": await p.usage()}
+
+
+@app.get("/api/research/leads.csv")
+async def research_leads_csv():
+    """Picked leads for the person who sends (by hand, outside Veyra). Leaves out
+    anyone rejected, marked do-not-contact or already contacted."""
+    import csv
+    import io
+    p = await _pilot()
+    out = io.StringIO()
+    w = csv.writer(out)
+    w.writerow(["company", "website", "city", "region", "fit", "reviewer", "your_decision",
+                "email (published role inbox)", "phone", "subject", "draft", "batch"])
+    for r in await p.leads():
+        if r["outreach_state"] in ("rejected", "do_not_contact", "contacted"):
+            continue
+        w.writerow([r["name"], r["website"] or f"https://{r['domain']}", r["city"], r["region"],
+                    r["triage"].get("fit", ""), r["verdict"], r["outreach_state"],
+                    "; ".join(r["role_emails"]), "; ".join(r["phones"]),
+                    r["draft_subject"], r["draft_body"], r["batch"]])
+    return Response(out.getvalue(), media_type="text/csv", headers={
+        "Content-Disposition": 'attachment; filename="veyra-leads.csv"'})
+
+
+@app.get("/api/research/{company_id}")
+async def get_research_profile(company_id: str):
+    """One company's full profile (facts, hypotheses, review, draft) as Markdown."""
+    p = await _pilot()
+    for r in await p._q("SELECT batch FROM veyra_research WHERE company_id = ?", (company_id,)):
+        r = next(x for x in await p.rows(r["batch"]) if x["company_id"] == company_id)
+        if r["status"] in ("drafted", "reviewed", "dropped"):
+            return {"name": r["name"], "domain": r["domain"], "markdown": p.profile_md(r)}
+    return _refuse("No profile for that company in this batch.", 404)
+
+
+@app.post("/api/research/{company_id}/mark")
+async def mark_research(company_id: str, request: Request):
+    """Record a human decision. The same states as `harvey pilot mark`; sends nothing."""
+    from harvey.pilot import OUTREACH_STATES
+    body = await request.json()
+    st = body.get("state", "")
+    if st not in OUTREACH_STATES:
+        return _refuse(f"state must be one of {', '.join(OUTREACH_STATES)}", 400)
+    p = await _pilot()
+    rows = await p._q("SELECT domain FROM companies WHERE id = ?", (company_id,))
+    if not rows:
+        return _refuse("Unknown company.", 404)
+    await p.mark(rows[0]["domain"], st, str(body.get("note", ""))[:500])
+    return {"success": True}
+
+
 # ── Feedback ──
 
 
@@ -609,6 +696,11 @@ async def start_harvey():
 
     if _check_harvey_pid():
         return {"success": False, "message": "Harvey is already running."}
+    from harvey import research_only
+    try:
+        research_only.refuse("The autonomous heartbeat loop")
+    except research_only.CommunicationBlocked as e:
+        return {"success": False, "message": str(e)}
     from harvey.main import _needs_setup
     if _needs_setup():
         return {"success": False,

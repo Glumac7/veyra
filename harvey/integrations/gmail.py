@@ -546,6 +546,8 @@ class GmailProvider(MailProvider):
 def run_auth_flow(client_id: str, client_secret: str) -> bool:
     """One-time OAuth (installed-app loopback). Blocks until the browser
     round-trip completes; stores the refresh token for GmailProvider."""
+    from harvey import research_only
+    research_only.refuse("Connecting a mailbox")
     import http.server
     import secrets
     import threading

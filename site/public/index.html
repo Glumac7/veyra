@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Veyra Leads</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<a class="skip" href="#detail">Skip to the open lead</a>
+
+<div id="app" hidden>
+  <header class="top">
+    <p class="brand"><b>Veyra</b> <span>Lead board</span></p>
+    <nav class="top-links" aria-label="Board">
+      <a href="/api/leads.csv" download>Download spreadsheet</a>
+      <details class="menu">
+        <summary><span class="sr">Signed in as </span><span id="me"></span></summary>
+        <div class="menu-list">
+          <button type="button" onclick="changeName()">Change name</button>
+          <button type="button" onclick="logout()">Log out</button>
+        </div>
+      </details>
+    </nav>
+  </header>
+
+  <p id="err" class="banner" role="alert" hidden></p>
+
+  <main class="layout">
+    <section class="list" aria-labelledby="leads-title">
+      <div class="list-head">
+        <div class="title-row"><h1 id="leads-title">Leads</h1><p id="summary" class="summary" aria-live="polite"></p></div>
+        <label class="sr" for="search">Search leads</label>
+        <input id="search" type="search" placeholder="Search company, city, trade or person" oninput="render()">
+        <div class="filters">
+          <label class="sr" for="f-status">Status</label>
+          <select id="f-status" onchange="render()">
+            <option value="open">Open leads</option><option value="all">All leads</option>
+            <option value="new">New</option><option value="contacted">Contacted</option><option value="replied">Replied</option>
+            <option value="meeting">Meeting booked</option><option value="won">Won</option><option value="lost">Lost</option>
+            <option value="do_not_contact">Do not contact</option><option value="rejected">Not a fit</option>
+          </select>
+          <label class="sr" for="f-region">Region</label>
+          <select id="f-region" onchange="render()"><option value="">US and EU</option><option value="US">US only</option><option value="EU">EU only</option></select>
+        </div>
+      </div>
+      <div id="rows" class="rows"></div>
+    </section>
+
+    <section id="detail" class="detail" tabindex="-1" aria-label="Open lead"></section>
+  </main>
+
+  <p id="status" class="toast" role="status" aria-live="polite"></p>
+</div>
+
+<main id="login" class="center" hidden>
+  <form class="gate" onsubmit="login(event)">
+    <p class="brand"><b>Veyra</b> <span>Lead board</span></p>
+    <h1>Sign in</h1>
+    <label for="pw">Team password</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <p id="login-err" class="err" role="alert"></p>
+    <button type="submit" class="primary">Open the board</button>
+  </form>
+</main>
+
+<main id="ask-name" class="center" hidden>
+  <form class="gate" onsubmit="saveName(event)">
+    <p class="brand"><b>Veyra</b> <span>Lead board</span></p>
+    <h1>Who's working?</h1>
+    <label for="name-input">Your first name</label>
+    <input id="name-input" maxlength="60" autocomplete="given-name" aria-describedby="name-help" required>
+    <p id="name-help" class="hint">Your colleagues see it next to the leads you claim and the notes you write.</p>
+    <button type="submit" class="primary">Continue</button>
+  </form>
+</main>
+
+<script src="/app.js"></script>
+</body>
+</html>
