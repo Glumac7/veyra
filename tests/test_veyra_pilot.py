@@ -365,6 +365,7 @@ def test_building_services_never_pitched_on_quoting(tmp_path, monkeypatch):
                 "profile_json": json.dumps({"workflow_hypothesis": hyp})}
     crossing = [row("hvac", "field_service", "HVAC contractor", "How do quotes reach your ERP?"),
                 row("trade", "other", "Heizung und Sanitär Installateur", "Zwischen Angebot und Auftrag?"),
+                row("electrician", "field_service", "Elektroinstallateur", "Wie kalkulieren Sie LVs?"),
                 row("", "building_services", "Mechanical contractor", "Fine.", "Estimating is re-keyed")]
     fine = [row("hvac", "field_service", "HVAC contractor", "How do service calls reach dispatch?"),
             row("plumber", "distributor", "Plumbing parts distributor", "How do RFQs reach your quotes?"),
