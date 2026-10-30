@@ -356,3 +356,30 @@ def test_drafts_never_give_away_our_size():
     assert "Never say or hint how many we are" in prompt and "Vienna" in prompt
     offer = (ROOT / "veyra.yaml").read_text(encoding="utf-8").split("offer:")[1].split("pilot:")[0]
     assert not P.HEADCOUNT.search(offer) and "Vienna" in offer
+
+
+def test_building_services_never_pitched_on_quoting(tmp_path, monkeypatch):
+    def row(industry, segment, what, draft, hyp=""):
+        return {"industry": industry, "draft_subject": "Service calls", "draft_body": draft,
+                "triage_json": json.dumps({"segment": segment, "what_it_does": what}),
+                "profile_json": json.dumps({"workflow_hypothesis": hyp})}
+    crossing = [row("hvac", "field_service", "HVAC contractor", "How do quotes reach your ERP?"),
+                row("trade", "other", "Heizung und Sanitär Installateur", "Zwischen Angebot und Auftrag?"),
+                row("", "building_services", "Mechanical contractor", "Fine.", "Estimating is re-keyed")]
+    fine = [row("hvac", "field_service", "HVAC contractor", "How do service calls reach dispatch?"),
+            row("plumber", "distributor", "Plumbing parts distributor", "How do RFQs reach your quotes?"),
+            row("trade", "distributor", "Industrial supplies", "How are quotes keyed into the ERP?")]
+    assert all(P.Pilot.partner_scope(r) for r in crossing)
+    assert not any(P.Pilot.partner_scope(r) for r in fine)
+    assert "Partner scope" in P.triage_prompt("offer", []) and "partner" in P.review_prompt([])
+
+    async def go():                       # the board loses such a lead on the next sync
+        state = await _fixture_state(tmp_path, monkeypatch)
+        p = _pilot(state, tmp_path, FakeBrain())
+        await p.run()
+        heating = next(r for r in await p.rows(1) if r["domain"] == "beta-heating.example.com")
+        await p.update(heating["company_id"], triage_json=json.dumps(
+            {"segment": "building_services", "what_it_does": "Heating installer", "fit": 8}))
+        assert await p.enforce_scope() == 1
+        assert [r["domain"] for r in await p.rows(1, "dropped")] == ["beta-heating.example.com"]
+    asyncio.run(go())
