@@ -76,6 +76,11 @@ class BudgetReached(Exception):
     pass
 
 
+class Offline(Exception):
+    """No company site answered at all: the machine has no internet (asleep, on the
+    road). Leave the companies to the next run instead of marking them empty."""
+
+
 class ModelUnavailable(Exception):
     """No reply at all (logged out, outage, timeout): pause rather than burn budget."""
 
@@ -199,8 +204,12 @@ async def collect_evidence(domain: str, cache_dir: Path, client=None) -> dict:
     for key in ("emails", "phones"):
         seen = set()
         ev[key] = [x for x in ev[key] if not (x["value"] in seen or seen.add(x["value"]))][:5]
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    cache.write_text(json.dumps(ev, indent=1), encoding="utf-8")
+    # Only connection errors means we never reached the site: don't cache, retry later.
+    ev["unreached"] = not ev["pages"] and all(s["why"] not in ("robots.txt",) and not
+                                              s["why"].startswith("HTTP") for s in ev["skipped"])
+    if not ev["unreached"]:
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache.write_text(json.dumps(ev, indent=1), encoding="utf-8")
     return ev
 
 
@@ -478,15 +487,21 @@ class Pilot:
                                                   "domain": r["domain"]} for r in todo], self.config)
         except Exception as e:
             logger.warning("profiler failed (evidence still collected): %s", e)
+        reached = 0
         for r in todo:
             try:
                 ev = await collect_evidence(r["domain"], self.out / "evidence")
             except Exception as e:
                 logger.warning("evidence for %s failed: %s", r["domain"], e)
-                ev = {"pages": []}
+                ev = {"pages": [], "unreached": True}
+            reached += not ev.get("unreached")
             status = "evidence" if ev.get("pages") else "no_evidence"
             await self.update(r["company_id"], status=status,
                               evidence_path=str(self.out / "evidence" / f"{_slug(r['domain'])}.json"))
+        if not reached:
+            for r in todo:
+                await self.update(r["company_id"], status="candidate")
+            raise Offline
 
     def evidence(self, row: dict) -> dict:
         path = Path(row["evidence_path"])
@@ -611,6 +626,8 @@ class Pilot:
                     await self.review(batch)
         except BudgetReached:
             result["paused"] = "model-call budget reached"
+        except Offline:
+            result["paused"] = "no company site could be reached (no internet?); the next run retries them"
         except ModelUnavailable:
             result["paused"] = ("the model gave no reply (check `claude login`); "
                                 "the failed attempt was counted")

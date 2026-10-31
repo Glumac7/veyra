@@ -384,3 +384,28 @@ def test_building_services_never_pitched_on_quoting(tmp_path, monkeypatch):
         assert await p.enforce_scope() == 1
         assert [r["domain"] for r in await p.rows(1, "dropped")] == ["beta-heating.example.com"]
     asyncio.run(go())
+
+
+def test_offline_run_leaves_companies_for_the_next_run(tmp_path, monkeypatch):
+    import httpx
+
+    class NoNet:
+        async def get(self, url):
+            raise httpx.ConnectError("offline")
+
+    async def go():
+        ev = await P.collect_evidence("down.example.com", tmp_path / "ev", client=NoNet())
+        assert ev["unreached"] and not (tmp_path / "ev").exists()      # nothing cached
+
+        state = await _fixture_state(tmp_path, monkeypatch)
+        for f in (tmp_path / "out" / "evidence").glob("*.json"):
+            f.unlink()
+
+        async def offline(domain, cache_dir, client=None):
+            return await P.collect_evidence(domain, cache_dir, client=NoNet())
+        monkeypatch.setattr(P, "collect_evidence", offline)
+        brain = FakeBrain()
+        result = await _pilot(state, tmp_path, brain).run()
+        assert "no company site could be reached" in result["paused"] and brain.calls == 0
+        assert {r["status"] for r in await _pilot(state, tmp_path, brain).rows(1)} == {"candidate"}
+    asyncio.run(go())
