@@ -409,3 +409,9 @@ def test_offline_run_leaves_companies_for_the_next_run(tmp_path, monkeypatch):
         assert "no company site could be reached" in result["paused"] and brain.calls == 0
         assert {r["status"] for r in await _pilot(state, tmp_path, brain).rows(1)} == {"candidate"}
     asyncio.run(go())
+
+
+def test_triage_targets_larger_operations_without_guessing_size():
+    prompt = P.triage_prompt("offer", [])
+    assert "~20-250" in prompt and "never guess a number" in prompt
+    assert "Unknown headcount is not a reason to reject" in prompt

@@ -294,9 +294,14 @@ def _evidence_block(ref: str, row: dict, ev: dict, observations: list[dict]) -> 
 def triage_prompt(offer: str, blocks: list[str]) -> str:
     return f"""You screen companies as possible buyers for this service:
 {offer}
-We look for B2B distributors/wholesalers and field-service businesses (ideally ~10-100
+We look for B2B distributors/wholesalers and field-service businesses (ideally ~20-250
 staff) where quoting, supplier pricing, order intake, document handling or disconnected
 systems could plausibly be improved. These are potential buyers, not customers.
+Size is rarely stated, so read it from the pages: several branches or locations, a
+warehouse, their own delivery fleet, an online B2B shop or customer portal, a named ERP or
+business system, or job ads for office, sales or back-office staff point to a larger
+operation and raise fit. A one-person or family shop with no office staff lowers it.
+Cite the page for any of these signals in headcount_evidence; never guess a number.
 
 {RULES}
 
