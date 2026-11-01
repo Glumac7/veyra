@@ -256,19 +256,25 @@ DRAFT_VOICE = """Voice (a warm, human first email; it must not read like a sales
 - Language: German (formal Sie, warm and natural, as a person from Vienna writes) for companies
   in Austria or Germany, otherwise English. Plain everyday words a busy owner reads in 20
   seconds; no jargon unless they use it on their own site (no "RFQ", "ERP" otherwise).
+  Short sentences (mostly under 15 words). Write about them more than about us: "you" and
+  "your" should outnumber "I" and "we".
 - Shape, as 3-4 very short paragraphs:
-  1. Why I'm writing to them: the one verified detail that caught my attention, told the way a
-     person mentions something they noticed ("I came across ... and saw that ..."), never
-     "Your site says" or a recital of their about page. No compliments or flattery.
-  2. One honest, low-key line on why that detail made me think of them: what we help
-     businesses like theirs with, in their terms, as a possibility, not a claim about them.
-  3. One easy question about that one thing that is just as easy to answer "no" to (for
-     example "Is that something you've looked at, or does it already run smoothly?").
+  1. Why I'm writing to them: the one verified detail, told the way a person mentions
+     something they noticed. Start with the detail itself, not a stock opener that every
+     template uses ("I came across", "I noticed", "I was looking at", "I stumbled upon",
+     "Ich bin auf ... gestoßen"), and never "Your site says" or a recital of their about
+     page. No compliments or flattery.
+  2. One honest, low-key line on why that detail made me think of them: the everyday work it
+     usually means (a picture they recognise, like orders retyped from fax and email), and
+     that we help businesses like theirs with exactly that. A possibility, not a claim.
+  3. One easy question about that same moment of work, concrete enough to answer from memory
+     and just as easy to answer "no" to (for example "When a dealer faxes an order, does
+     someone still type it in, or is that already handled?").
      Interest, not a meeting: no calendar, no "15-minute call", no "next week".
 - Quoted phrases here are only examples: say it in your own words, fitted to this company.
 - Greeting "Hello," / "Guten Tag," (no named contact). Close warmly and simply: "Best wishes
   from Vienna," / "Viele Grüße aus Wien,".
-- Subject: 2-6 plain words about their specific thing, like a colleague would write. Never
+- Subject: 2-4 plain words about their specific thing, like a colleague would write. Never
   generic ("Kurze Frage", "Quick question", "Ihre Abläufe"), never "Re:", no hype.
 - No hedging or apologising ("Darf ich fragen", "nur kurz", "I hope this finds you well",
   "sorry to bother"), no em dashes, no exclamation marks, no bullet points. Don't mention
@@ -347,8 +353,9 @@ In draft_issues, also flag anything that would make a careful buyer doubt us: th
 generic, the draft says how many we are or that we are small, it hedges or apologises,
 flatters, asks several questions, or raises price or AI too early. Also flag anything that
 reads like a sales pitch or AI rather than one person writing: company-speak or a service
-list, reciting their website back to them, jargon, a meeting or call ask instead of an easy
-question, or more than {MAX_DRAFT_WORDS} words.
+list, reciting their website back to them, a stock template opener ("I came across", "I
+noticed"), jargon, a vague question they can't answer from memory, a meeting or call ask
+instead of an easy question, or more than {MAX_DRAFT_WORDS} words.
 Drop any building-services contractor (HVAC, heating, plumbing, sanitary, ventilation, electrical) whose
 draft or hypothesis touches quoting, estimating, tender pricing or supplier quotes: a partner
 of ours covers that work.
