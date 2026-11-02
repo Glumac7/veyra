@@ -259,18 +259,23 @@ DRAFT_VOICE = """Voice (a warm, human first email; it must not read like a sales
   Short sentences (mostly under 15 words). Write about them more than about us: "you" and
   "your" should outnumber "I" and "we".
 - Shape, as 3-4 very short paragraphs:
-  1. Why I'm writing to them: the one verified detail, told the way a person mentions
-     something they noticed. Start with the detail itself, not a stock opener that every
-     template uses ("I came across", "I noticed", "I was looking at", "I stumbled upon",
-     "Ich bin auf ... gestoßen"), and never "Your site says" or a recital of their about
-     page. No compliments or flattery.
-  2. One honest, low-key line on why that detail made me think of them: the everyday work it
-     usually means (a picture they recognise, like orders retyped from fax and email), and
-     that we help businesses like theirs with exactly that. A possibility, not a claim.
-  3. One easy question about that same moment of work, concrete enough to answer from memory
-     and just as easy to answer "no" to (for example "When a dealer faxes an order, does
-     someone still type it in, or is that already handled?").
+  1. Why I'm writing to them: one full sentence in the first person, the way you'd tell a
+     colleague what you saw and why it made you write. Name the one verified detail briefly;
+     don't list or repeat their site (no service lists, no fragments, no "Your site says").
+     Avoid stock openers ("I came across", "I stumbled upon", "Ich bin auf ... gestoßen") and
+     stock devices ("that pairing", "stayed with me", "brought you to mind"). No compliments
+     or flattery.
+  2. One plain line on what we help businesses like theirs do, in their terms and tied to that
+     detail (for example getting orders that arrive by fax and email into their system
+     without retyping). Say what we do; never guess or describe what goes wrong at their
+     company or "often" goes wrong there.
+  3. Exactly one question (one question mark) about that same moment of work, concrete enough
+     to answer from memory and just as easy to answer "no" to (for example asking whether
+     someone still types those orders in, or whether that's already handled).
      Interest, not a meeting: no calendar, no "15-minute call", no "next week".
+- Write each email fresh for this company: no sentence that would fit any company unchanged
+  ("we help businesses like yours with exactly that", "Genau dabei helfen wir Betrieben wie
+  Ihrem").
 - Quoted phrases here are only examples: say it in your own words, fitted to this company.
 - Greeting "Hello," / "Guten Tag," (no named contact). Close warmly and simply: "Best wishes
   from Vienna," / "Viele Grüße aus Wien,".
@@ -353,9 +358,10 @@ In draft_issues, also flag anything that would make a careful buyer doubt us: th
 generic, the draft says how many we are or that we are small, it hedges or apologises,
 flatters, asks several questions, or raises price or AI too early. Also flag anything that
 reads like a sales pitch or AI rather than one person writing: company-speak or a service
-list, reciting their website back to them, a stock template opener ("I came across", "I
-noticed"), jargon, a vague question they can't answer from memory, a meeting or call ask
-instead of an easy question, or more than {MAX_DRAFT_WORDS} words.
+list, reciting their website back to them, a stock template opener or a line that would fit
+any company unchanged, guessing what goes wrong at their company, jargon, more than one
+question or a vague one they can't answer from memory, a meeting or call ask instead of an
+easy question, or more than {MAX_DRAFT_WORDS} words.
 Drop any building-services contractor (HVAC, heating, plumbing, sanitary, ventilation, electrical) whose
 draft or hypothesis touches quoting, estimating, tender pricing or supplier quotes: a partner
 of ours covers that work.
