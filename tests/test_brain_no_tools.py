@@ -301,3 +301,21 @@ def test_capability_check_is_cached_per_executable(monkeypatch, tmp_path):
     exe.write_text("v2 is longer")  # an update: checked again
     claude_runtime.check_cli()
     assert len(probes) == 2
+
+
+@pytest.mark.asyncio
+async def test_api_error_on_stdout_is_logged(state, monkeypatch, caplog):
+    """Credit or billing errors come back in the JSON on stdout with stderr
+    empty; the log must say so, not just "exited with code 1"."""
+    class _Failing(_FakeProcess):
+        returncode = 1
+
+        async def communicate(self, data=None):
+            return b'{"type": "result", "is_error": true, "result": "Credit balance is too low"}', b""
+
+    async def fake_exec(*cmd, **kwargs):
+        return _Failing(kwargs["cwd"])
+
+    monkeypatch.setattr(brain_mod.asyncio, "create_subprocess_exec", fake_exec)
+    assert await Brain(state).think("hi", max_retries=0) == ""
+    assert "Credit balance is too low" in caplog.text

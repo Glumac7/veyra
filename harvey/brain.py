@@ -347,7 +347,11 @@ class Brain:
                     continue  # retry
 
                 if process.returncode != 0:
-                    error = stderr.decode(errors="replace").strip()
+                    # API errors ("Credit balance is too low") arrive in the
+                    # JSON on stdout, with stderr empty.
+                    error = (stderr.decode(errors="replace").strip()
+                             or self._parse_result_payload(
+                                 stdout.decode(errors="replace").strip())[0])
                     logger.error(
                         f"Claude exited with code {process.returncode}: {error[:300]}"
                     )

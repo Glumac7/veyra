@@ -12,6 +12,8 @@ let leads = [], openId = null, current = null, myName = "", listScroll = 0;
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
 const $ = (id) => document.getElementById(id);
 const me = () => { try { myName ||= localStorage.getItem("veyra-name") || ""; } catch {} return myName; };
+// The person reading the board sends the email, so their name signs it.
+const signed = (text) => String(text ?? "").replaceAll("[YOUR NAME]", me() || "[YOUR NAME]");
 const show = (id) => ["login", "ask-name", "app"].forEach((x) => ($(x).hidden = x !== id));
 const hashId = () => decodeURIComponent((location.hash.match(/^#lead=(.+)$/) || [])[1] || "");
 const ready = (l) => l.status === "new" && !l.owner;
@@ -177,10 +179,11 @@ function detailHtml(l) {
   const site = /^https?:\/\//i.test(l.website) ? l.website : "https://" + l.domain;
   const emails = String(l.emails || "").split(/[,;\s]+/).filter(Boolean);
   const phones = String(l.phones || "").split(/[,;]+/).map((p) => p.trim()).filter(Boolean);
-  const holes = [...new Set(String(l.draft || "").match(PLACEHOLDER) || [])];
+  const draft = signed(l.draft);
+  const holes = [...new Set(draft.match(PLACEHOLDER) || [])];
   const checks = [];
   if (holes.length) checks.push(`fill in ${holes.map((h) => `<mark>${esc(h)}</mark>`).join(" and ")}`);
-  if (HEADCOUNT.test(`${l.subject}\n${l.draft}`)) checks.push("rewrite the sentence that says how many we are. Say what we do instead");
+  if (HEADCOUNT.test(`${l.subject}\n${draft}`)) checks.push("rewrite the sentence that says how many we are. Say what we do instead");
   const copyBtn = (id, text, label, done) =>
     `<button id="${id}" type="button" class="copy" data-copy="${esc(text)}" onclick="copy(this.dataset.copy, '${done}')">Copy<span class="sr"> ${label}</span></button>`;
 
@@ -208,9 +211,9 @@ function detailHtml(l) {
             ? `<span class="v">${emails.map(esc).join(", ")}</span>${copyBtn("copy-to", emails[0], "address", "Address copied.")}`
             : `<span class="v none">No address on their site. Call instead.</span>`}</div>
           <div class="line"><span class="k">Subject</span><span class="v">${esc(l.subject)}</span>${copyBtn("copy-subject", l.subject, "subject", "Subject copied.")}</div>
-          <pre class="body">${esc(l.draft).replace(PLACEHOLDER, (m) => `<mark>${m}</mark>`)}</pre>
+          <pre class="body">${esc(draft).replace(PLACEHOLDER, (m) => `<mark>${m}</mark>`)}</pre>
           <div class="foot">
-            <button id="copy-body" type="button" class="secondary" onclick="copy(current.draft, 'Email text copied.')">Copy email text</button>
+            <button id="copy-body" type="button" class="secondary" onclick="copy(signed(current.draft), 'Email text copied.')">Copy email text</button>
             <span>REVIEW DRAFT — NOT APPROVED FOR SENDING. Edit it in your mail app before it goes out.</span>
           </div>
         </div>

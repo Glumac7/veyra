@@ -356,3 +356,62 @@ def test_drafts_never_give_away_our_size():
     assert "Never say or hint how many we are" in prompt and "Vienna" in prompt
     offer = (ROOT / "veyra.yaml").read_text(encoding="utf-8").split("offer:")[1].split("pilot:")[0]
     assert not P.HEADCOUNT.search(offer) and "Vienna" in offer
+
+
+def test_building_services_never_pitched_on_quoting(tmp_path, monkeypatch):
+    def row(industry, segment, what, draft, hyp=""):
+        return {"industry": industry, "draft_subject": "Service calls", "draft_body": draft,
+                "triage_json": json.dumps({"segment": segment, "what_it_does": what}),
+                "profile_json": json.dumps({"workflow_hypothesis": hyp})}
+    crossing = [row("hvac", "field_service", "HVAC contractor", "How do quotes reach your ERP?"),
+                row("trade", "other", "Heizung und Sanitär Installateur", "Zwischen Angebot und Auftrag?"),
+                row("electrician", "field_service", "Elektroinstallateur", "Wie kalkulieren Sie LVs?"),
+                row("", "building_services", "Mechanical contractor", "Fine.", "Estimating is re-keyed")]
+    fine = [row("hvac", "field_service", "HVAC contractor", "How do service calls reach dispatch?"),
+            row("plumber", "distributor", "Plumbing parts distributor", "How do RFQs reach your quotes?"),
+            row("trade", "distributor", "Industrial supplies", "How are quotes keyed into the ERP?")]
+    assert all(P.Pilot.partner_scope(r) for r in crossing)
+    assert not any(P.Pilot.partner_scope(r) for r in fine)
+    assert "Partner scope" in P.triage_prompt("offer", []) and "partner" in P.review_prompt([])
+
+    async def go():                       # the board loses such a lead on the next sync
+        state = await _fixture_state(tmp_path, monkeypatch)
+        p = _pilot(state, tmp_path, FakeBrain())
+        await p.run()
+        heating = next(r for r in await p.rows(1) if r["domain"] == "beta-heating.example.com")
+        await p.update(heating["company_id"], triage_json=json.dumps(
+            {"segment": "building_services", "what_it_does": "Heating installer", "fit": 8}))
+        assert await p.enforce_scope() == 1
+        assert [r["domain"] for r in await p.rows(1, "dropped")] == ["beta-heating.example.com"]
+    asyncio.run(go())
+
+
+def test_offline_run_leaves_companies_for_the_next_run(tmp_path, monkeypatch):
+    import httpx
+
+    class NoNet:
+        async def get(self, url):
+            raise httpx.ConnectError("offline")
+
+    async def go():
+        ev = await P.collect_evidence("down.example.com", tmp_path / "ev", client=NoNet())
+        assert ev["unreached"] and not (tmp_path / "ev").exists()      # nothing cached
+
+        state = await _fixture_state(tmp_path, monkeypatch)
+        for f in (tmp_path / "out" / "evidence").glob("*.json"):
+            f.unlink()
+
+        async def offline(domain, cache_dir, client=None):
+            return await P.collect_evidence(domain, cache_dir, client=NoNet())
+        monkeypatch.setattr(P, "collect_evidence", offline)
+        brain = FakeBrain()
+        result = await _pilot(state, tmp_path, brain).run()
+        assert "no company site could be reached" in result["paused"] and brain.calls == 0
+        assert {r["status"] for r in await _pilot(state, tmp_path, brain).rows(1)} == {"candidate"}
+    asyncio.run(go())
+
+
+def test_triage_targets_larger_operations_without_guessing_size():
+    prompt = P.triage_prompt("offer", [])
+    assert "~20-250" in prompt and "never guess a number" in prompt
+    assert "Unknown headcount is not a reason to reject" in prompt
